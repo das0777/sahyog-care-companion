@@ -8,10 +8,10 @@ The single record of how this project is executed: where we are, what was done, 
 
 | | |
 |---|---|
-| **Current stage** | S1 Safety core + eval harness: stage doc in review |
+| **Current stage** | S1 Safety core + eval harness: building |
 | **Last thing done** | S0 accepted, merged to `main` and tagged `s0-accepted`; S1 stage doc written (2026-10-30) |
-| **Next action** | User reviews `docs/stages/S1.md` and approves it (or asks for changes); then Claude builds S1 |
-| **Blocked on** | User: approval of the S1 stage doc |
+| **Next action** | Claude builds S1 and hands over a test pack |
+| **Blocked on** | Nothing: Claude is building |
 | **Last accepted tag** | `s0-accepted` (2026-10-30) |
 
 ### Open decisions
@@ -29,7 +29,7 @@ The single record of how this project is executed: where we are, what was done, 
 | Stage | Name | Status | Branch | Tag | Test pack |
 |---|---|---|---|---|---|
 | S0 | Foundation | **Accepted** 2026-10-30 | `stage/s0-foundation` | `s0-accepted` | [S0-test-pack.md](docs/stages/S0-test-pack.md) |
-| S1 | Safety core + eval harness | Stage doc in review | `stage/s1-safety` | | |
+| S1 | Safety core + eval harness | **Building** | `stage/s1-safety` | | |
 | S2 | W1 Find my doctor | Planned | `stage/s2-w1` | | |
 | S3 | W2 Ingest | Planned | `stage/s3-w2-ingest` | | |
 | S4 | W2 Ask | Planned | `stage/s4-w2-ask` | | |
