@@ -8,10 +8,10 @@ The single record of how this project is executed: where we are, what was done, 
 
 | | |
 |---|---|
-| **Current stage** | S1 Safety core + eval harness: building |
-| **Last thing done** | S0 accepted, merged to `main` and tagged `s0-accepted`; S1 stage doc written (2026-10-30) |
-| **Next action** | Claude builds S1 and hands over a test pack |
-| **Blocked on** | Nothing: Claude is building |
+| **Current stage** | S1 Safety core + eval harness: in user testing |
+| **Last thing done** | S1 built: all gates pass, 161 tests; blind probes exposed low recall on unseen phrasing (2026-10-30) |
+| **Next action** | User runs `docs/stages/S1-test-pack.md` (step 3 is the real red-flag test) and replies "S1 accepted" or lists failures |
+| **Blocked on** | User: the S1 test run and verdict |
 | **Last accepted tag** | `s0-accepted` (2026-10-30) |
 
 ### Open decisions
@@ -29,7 +29,7 @@ The single record of how this project is executed: where we are, what was done, 
 | Stage | Name | Status | Branch | Tag | Test pack |
 |---|---|---|---|---|---|
 | S0 | Foundation | **Accepted** 2026-10-30 | `stage/s0-foundation` | `s0-accepted` | [S0-test-pack.md](docs/stages/S0-test-pack.md) |
-| S1 | Safety core + eval harness | **Building** | `stage/s1-safety` | | |
+| S1 | Safety core + eval harness | **In user testing** | `stage/s1-safety` | | [S1-test-pack.md](docs/stages/S1-test-pack.md) |
 | S2 | W1 Find my doctor | Planned | `stage/s2-w1` | | |
 | S3 | W2 Ingest | Planned | `stage/s3-w2-ingest` | | |
 | S4 | W2 Ask | Planned | `stage/s4-w2-ask` | | |
@@ -111,6 +111,11 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 | 2026-10-29 | Seed phones use the +91 55 range | Not an Indian mobile range, so no real person can ever be texted |
 | 2026-10-29 | MinIO runs from `bitnamilegacy/minio:2025.4.22` | MinIO stopped publishing community images; this is the same release, frozen. Fine locally; a shared environment uses a managed S3-compatible store |
 | 2026-10-29 | Seed values never come from Faker date helpers | They convert through local time, so data shifted with the host time zone |
+| 2026-10-30 | Golden cases and probes are committed before the rules they test | So the git history shows which came first; the only honest way to measure rules written by the same author |
+| 2026-10-30 | Red-flag rules are a floor; S2 adds the model second pass and measures it on a held-out set by another author | Blind probes caught 8/15 and 5/15 on unseen phrasing, against 100% on Claude's own cases |
+| 2026-10-30 | Scrubber layers: known identifiers, Indian patterns, name gazetteer, structural name rules, then NER | spaCy's small English model misses most Indian names and mislabels Hinglish; no single layer was enough |
+| 2026-10-30 | Gateway: reject never repair; retry once; fallback; in-region calls never leave the boundary | Spec rules, enforced in code and tests rather than prompts |
+| 2026-10-30 | Anthropic SDK 2.x (API version 2026-10-21); server-side refusal fallback on Sonnet 5.5; SDK retries off | Current SDK; the gateway owns retries so attempts are visible and counted |
 
 ---
 
@@ -177,3 +182,20 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 - Merged `stage/s0-foundation` into `main` (merge commit, history kept) and tagged `s0-accepted`.
 - Wrote `docs/stages/S1.md` on branch `stage/s1-safety`: red-flag engine, language detection, de-identification and egress scrubber, model gateway with a fake model, 30 golden W1 cases, the egress replay and `make eval`.
 - **Next:** user reviews and approves the S1 stage doc; then Claude builds S1.
+
+### 2026-10-30 · S1 built
+- User approved the S1 stage doc ("Approve S1").
+- Committed the 30 golden W1 cases before writing any rule (`bd59208`).
+- Built:
+  - the red-flag engine (concepts, typo tolerance, combinations, fail-safe negation), with rules in `sahyog/seed/red_flags.yaml` seeded into `Specialty.red_flag_rules`;
+  - language detection;
+  - the layered egress scrubber;
+  - the model gateway with fake, Anthropic (SDK 2.3) and Ollama adapters and a cost meter;
+  - `make eval` with the egress replay and an independent detector;
+  - `make redflag`, `make scrub` and `make llm-smoke`;
+  - ADR 0002 and the red-flag rules guide.
+- **Key finding:** two blind probes of 15 unseen emergency phrasings caught 8/15, then 5/15 (probe 2 held out until measured), against 100% on the golden set. Fixed the misses with general rules; both probes are now regression cases. Recorded as the main risk for S2.
+- **Method slip, caught:** fixing probe 1 first included phrases echoing probe 2. They were removed before probe 2 was measured.
+- Fixed during the build: the "karna/marna" typo misfire; Presidio flagging test dates; spaCy tagging Hinglish and doses as names; North-East and South Indian names leaking; a name rule eating "HbA1c"; the replay planting no out-of-list names; a stale lint config in the image.
+- Results: every gate passes; `GUARDRAILS=off` fails (B1 0/13, B5 875 leaks); 161 tests; lint clean.
+- **Next:** user runs the S1 test pack, especially step 3 (their own red-flag phrasings), and gives a verdict.
