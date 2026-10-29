@@ -8,11 +8,11 @@ The single record of how this project is executed: where we are, what was done, 
 
 | | |
 |---|---|
-| **Current stage** | S0 Foundation: in user testing |
-| **Last thing done** | S0 verified on the full Docker stack: A1–A10 pass, 35/35 tests; test pack revised (2026-10-29) |
-| **Next action** | User runs `docs/stages/S0-test-pack.md` and replies "S0 accepted" or lists failures |
-| **Blocked on** | User: the S0 test run and verdict |
-| **Last accepted tag** | none yet |
+| **Current stage** | S1 Safety core + eval harness: stage doc in review |
+| **Last thing done** | S0 accepted, merged to `main` and tagged `s0-accepted`; S1 stage doc written (2026-10-30) |
+| **Next action** | User reviews `docs/stages/S1.md` and approves it (or asks for changes); then Claude builds S1 |
+| **Blocked on** | User: approval of the S1 stage doc |
+| **Last accepted tag** | `s0-accepted` (2026-10-30) |
 
 ### Open decisions
 
@@ -28,8 +28,8 @@ The single record of how this project is executed: where we are, what was done, 
 
 | Stage | Name | Status | Branch | Tag | Test pack |
 |---|---|---|---|---|---|
-| S0 | Foundation | **In user testing** | `stage/s0-foundation` | | [S0-test-pack.md](docs/stages/S0-test-pack.md) |
-| S1 | Safety core + eval harness | Planned | `stage/s1-safety` | | |
+| S0 | Foundation | **Accepted** 2026-10-30 | `stage/s0-foundation` | `s0-accepted` | [S0-test-pack.md](docs/stages/S0-test-pack.md) |
+| S1 | Safety core + eval harness | Stage doc in review | `stage/s1-safety` | | |
 | S2 | W1 Find my doctor | Planned | `stage/s2-w1` | | |
 | S3 | W2 Ingest | Planned | `stage/s3-w2-ingest` | | |
 | S4 | W2 Ask | Planned | `stage/s4-w2-ask` | | |
@@ -171,3 +171,9 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 - Results on the real stack after `make reset` and `make up`: A1–A10 all pass, 35/35 tests in about 1 s, lint clean, `audio` bucket carries the 1-day expiry rule.
 - Removed the temporary `sahyog-local/postgres-pgvector` image built during the Docker outage.
 - **Next:** user runs the revised S0 test pack and gives a verdict.
+
+### 2026-10-30 · S0 accepted, S1 stage doc
+- User ran the S0 test pack and replied "S0 accepted".
+- Merged `stage/s0-foundation` into `main` (merge commit, history kept) and tagged `s0-accepted`.
+- Wrote `docs/stages/S1.md` on branch `stage/s1-safety`: red-flag engine, language detection, de-identification and egress scrubber, model gateway with a fake model, 30 golden W1 cases, the egress replay and `make eval`.
+- **Next:** user reviews and approves the S1 stage doc; then Claude builds S1.
