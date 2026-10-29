@@ -8,19 +8,19 @@ The single record of how this project is executed: where we are, what was done, 
 
 | | |
 |---|---|
-| **Current stage** | Pre-S0: planning complete, waiting on three decisions |
-| **Last thing done** | Stage plan and stage-gate process agreed (2026-10-29) |
-| **Next action** | User answers the S0 decisions (below), then Claude writes `docs/stages/S0.md` for approval |
-| **Blocked on** | User: repo location, LLM provider and key, Docker availability |
+| **Current stage** | S0 Foundation: in user testing |
+| **Last thing done** | S0 verified on the full Docker stack: A1–A10 pass, 35/35 tests; test pack revised (2026-10-29) |
+| **Next action** | User runs `docs/stages/S0-test-pack.md` and replies "S0 accepted" or lists failures |
+| **Blocked on** | User: the S0 test run and verdict |
 | **Last accepted tag** | none yet |
 
 ### Open decisions
 
 | # | Decision | Proposed default | Status |
 |---|---|---|---|
-| Q1 | Repo location | `~/Desktop/sahyog-care-companion` (this folder), not inside zerowire-v1 | Open |
-| Q2 | LLM provider | Anthropic API: Sonnet 5.5 for triage and drafting, Haiku 5.5 for cheap steps; local Ollama as the in-region fallback; a fake model for all tests. The user adds the key to `.env` themself | Open |
-| Q3 | Docker | Docker Desktop installed and running on the Mac | Open |
+| Q1 | Repo location | `~/Desktop/sahyog-care-companion` (this folder), not inside zerowire-v1 | **Decided** 2026-10-29 |
+| Q2 | LLM provider | Anthropic API: Sonnet 5.5 for triage and drafting, Haiku 5.5 for cheap steps; local Ollama as the in-region fallback; a fake model for all tests. The user adds the key to `.env` themself (needed from S2; S0 and S1 run on the fake model) | **Decided** 2026-10-29 |
+| Q3 | Docker | Docker Desktop installed and running on the Mac | **Confirmed** 2026-10-29: Docker 29.5.3, Compose 5.1.4 |
 
 ---
 
@@ -28,7 +28,7 @@ The single record of how this project is executed: where we are, what was done, 
 
 | Stage | Name | Status | Branch | Tag | Test pack |
 |---|---|---|---|---|---|
-| S0 | Foundation | Planned | `stage/s0-foundation` | | |
+| S0 | Foundation | **In user testing** | `stage/s0-foundation` | | [S0-test-pack.md](docs/stages/S0-test-pack.md) |
 | S1 | Safety core + eval harness | Planned | `stage/s1-safety` | | |
 | S2 | W1 Find my doctor | Planned | `stage/s2-w1` | | |
 | S3 | W2 Ingest | Planned | `stage/s3-w2-ingest` | | |
@@ -103,6 +103,14 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 | 2026-10-28 | Live wait-time estimate is a Pro extension, shown as a range | Needs real per-doctor consultation durations first (from W3 timestamps or a "next patient" tap) |
 | 2026-10-29 | Build in eight gated stages (S0–S7) with user sign-off per stage | User wants to test each stage before moving on |
 | 2026-10-29 | Evals and guardrails (S1) come before any graph code (S2) | The PRD's release plan rule: evals exist before graphs |
+| 2026-10-29 | Defaults adopted: repo here, Anthropic API with a fake model for tests and Ollama as fallback, local Docker | User: "Use defaults" |
+| 2026-10-29 | Local ports: API 8000, Postgres 5433, Redis 6380, MinIO 9100/9101 | zerowire's containers already hold 9000 and 6379 on this Mac |
+| 2026-10-29 | Safety rules live in database triggers: append-only audit (including TRUNCATE), immutable signed notes, token within block capacity | They must hold even if application code is wrong |
+| 2026-10-29 | Audit row is committed in its own transaction before data is returned; denied attempts are logged; a failed audit write fails the request | "Never read without logging" (E6.1) |
+| 2026-10-29 | Caregivers denied in S0 rather than allowed without a consent check | Consent enforcement belongs to S4; failing closed is safer |
+| 2026-10-29 | Seed phones use the +91 55 range | Not an Indian mobile range, so no real person can ever be texted |
+| 2026-10-29 | MinIO runs from `bitnamilegacy/minio:2025.4.22` | MinIO stopped publishing community images; this is the same release, frozen. Fine locally; a shared environment uses a managed S3-compatible store |
+| 2026-10-29 | Seed values never come from Faker date helpers | They convert through local time, so data shifted with the host time zone |
 
 ---
 
@@ -129,3 +137,37 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 - Agreed the stage-gate process: stage doc → build → Claude's own tests → test pack → user verdict → merge and tag.
 - Created this journal.
 - **Next:** user answers Q1–Q3, then Claude writes the S0 stage doc for approval.
+
+### 2026-10-29 · S0 stage doc
+- User chose the defaults for Q1–Q3. Confirmed tooling on the Mac: Docker 29.5.3, Compose 5.1.4, Python 3.12, uv 0.11.7.
+- Initialised the git repo: `main` holds the journal, and work moved to branch `stage/s0-foundation`.
+- Wrote `docs/stages/S0.md`: scope (Compose stack, 14 tables, deterministic synthetic seed, dev tokens, audit on every read), what is out, acceptance checks A1–A10, and stage decisions.
+- Found port clashes with the zerowire containers (9000, 6379), so offset the MinIO and Redis ports.
+- **Next:** user reviews and approves the S0 stage doc; then Claude builds S0 and returns a test pack.
+
+### 2026-10-29 · S0 built
+- User approved the S0 stage doc.
+- Built:
+  - the Compose stack and Makefile;
+  - all 14 tables in migration `0001`, with triggers for an append-only audit log, immutable signed notes and token-within-capacity;
+  - a deterministic seed (38 / 12 / 500 / 42,000 / 1,000 / 50 / 360 in about 2 s);
+  - dev tokens with a per-request auth context;
+  - audit on every patient read, including denials;
+  - `/health`, `/me`, `/patients/{id}`, `/doctors` and `/audit`;
+  - README, 14 data contracts and ADR 0001.
+- **Blocker:** Docker Desktop image pulls hang on this Mac, though the Mac and running containers can reach the internet. Worked around it for testing only, with a locally built pgvector Postgres image and cached Redis, running the API and tests on the Mac with `uv`. The compose file still uses the official pinned images.
+- Results: 33/34 tests pass and lint is clean. The only failure is the health test, because MinIO could not run. A1 and A2 are not yet verified on the real stack.
+- Fixed while building:
+  - `alembic` could not import the package (fixed with `prepend_sys_path`);
+  - the dev JWT secret was too short;
+  - a test used a `:1` literal that SQLAlchemy read as a bind parameter.
+- **Next:** user restarts Docker Desktop, runs the S0 test pack, and gives a verdict.
+
+### 2026-10-29 · S0 verified on the full stack
+- Docker pulls recovered on their own; the pgvector, Redis and Python images downloaded.
+- **Found:** `minio/minio` no longer exists on Docker Hub, and Quay refuses the pinned tag. MinIO has stopped publishing community images. Switched to `bitnamilegacy/minio:2025.4.22` (same release), with data at `/bitnami/minio/data` and a `curl` health check.
+- **Found:** the seed fingerprint differed between the Mac (`2824c0f543177b7e`) and the container. Traced it to Faker's `date_between`, which goes through local time: 84 of 1,000 dates of birth were a day apart between IST and UTC. Dates of birth now come from the seeded `rng`, and a new test seeds under three time zones. The fingerprint is now `3db173f11c0d0f79` on both.
+- Also fixed: the test pack's secrets check matched its own text; Alembic's `path_separator` deprecation warning.
+- Results on the real stack after `make reset` and `make up`: A1–A10 all pass, 35/35 tests in about 1 s, lint clean, `audio` bucket carries the 1-day expiry rule.
+- Removed the temporary `sahyog-local/postgres-pgvector` image built during the Docker outage.
+- **Next:** user runs the revised S0 test pack and gives a verdict.
