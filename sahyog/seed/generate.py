@@ -58,6 +58,10 @@ class Scale:
     expired_consents: int = 10
 
 
+DOB_FROM = date(1940, 1, 1)
+DOB_SPAN_DAYS = (date(2020, 12, 31) - DOB_FROM).days + 1
+
+
 @dataclass(frozen=True)
 class SeedResult:
     counts: dict[str, int]
@@ -169,7 +173,8 @@ def _patients(rng: random.Random, fake: Faker, n: int) -> list[dict]:
                 "patient_id": f"P{i:04d}",
                 "abha_id": f"{digits[:2]}-{digits[2:6]}-{digits[6:10]}-{digits[10:]}",
                 "name": fake.name(),
-                "dob": fake.date_between(date(1940, 1, 1), date(2020, 12, 31)),
+                # From rng, not Faker: Faker goes via local time, so dates moved with the time zone
+                "dob": DOB_FROM + timedelta(days=rng.randrange(DOB_SPAN_DAYS)),
                 # +91 55 is not an Indian mobile range, so no real person can ever be texted
                 "phone": f"+91 55{rng.randrange(10**8):08d}",
                 "language": rng.choices(["en", "hi", "mr"], [4, 4, 2])[0],

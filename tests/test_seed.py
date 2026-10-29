@@ -1,3 +1,5 @@
+import time
+
 from sqlalchemy import func, select, text
 
 from sahyog.config import get_settings
@@ -23,6 +25,18 @@ def test_different_seed_gives_different_data():
     with get_sessionmaker()() as session, session.begin():
         other = seed(session, random_seed=7, scale=TEST_SCALE)
     assert other.fingerprint != _run().fingerprint  # _run restores the standard seed
+
+
+def test_seed_is_the_same_in_every_host_time_zone(monkeypatch):
+    # The Mac runs on IST and the container on UTC; the same seed must give the same data on both
+    fingerprints = set()
+    for zone in ["UTC", "Asia/Kolkata", "America/Los_Angeles"]:
+        monkeypatch.setenv("TZ", zone)
+        time.tzset()
+        fingerprints.add(_run().fingerprint)
+    monkeypatch.undo()
+    time.tzset()
+    assert len(fingerprints) == 1
 
 
 def test_counts_match_scale():

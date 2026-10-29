@@ -9,9 +9,9 @@ The single record of how this project is executed: where we are, what was done, 
 | | |
 |---|---|
 | **Current stage** | S0 Foundation: in user testing |
-| **Last thing done** | S0 built; 33/34 tests pass; test pack written (2026-10-29) |
-| **Next action** | User fixes Docker pulls, runs `docs/stages/S0-test-pack.md`, and replies "S0 accepted" or lists failures |
-| **Blocked on** | User: Docker Desktop cannot pull images (restart it); then the S0 test run |
+| **Last thing done** | S0 verified on the full Docker stack: A1–A10 pass, 35/35 tests; test pack revised (2026-10-29) |
+| **Next action** | User runs `docs/stages/S0-test-pack.md` and replies "S0 accepted" or lists failures |
+| **Blocked on** | User: the S0 test run and verdict |
 | **Last accepted tag** | none yet |
 
 ### Open decisions
@@ -109,6 +109,8 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 | 2026-10-29 | Audit row is committed in its own transaction before data is returned; denied attempts are logged; a failed audit write fails the request | "Never read without logging" (E6.1) |
 | 2026-10-29 | Caregivers denied in S0 rather than allowed without a consent check | Consent enforcement belongs to S4; failing closed is safer |
 | 2026-10-29 | Seed phones use the +91 55 range | Not an Indian mobile range, so no real person can ever be texted |
+| 2026-10-29 | MinIO runs from `bitnamilegacy/minio:2025.4.22` | MinIO stopped publishing community images; this is the same release, frozen. Fine locally; a shared environment uses a managed S3-compatible store |
+| 2026-10-29 | Seed values never come from Faker date helpers | They convert through local time, so data shifted with the host time zone |
 
 ---
 
@@ -160,3 +162,12 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
   - the dev JWT secret was too short;
   - a test used a `:1` literal that SQLAlchemy read as a bind parameter.
 - **Next:** user restarts Docker Desktop, runs the S0 test pack, and gives a verdict.
+
+### 2026-10-29 · S0 verified on the full stack
+- Docker pulls recovered on their own; the pgvector, Redis and Python images downloaded.
+- **Found:** `minio/minio` no longer exists on Docker Hub, and Quay refuses the pinned tag. MinIO has stopped publishing community images. Switched to `bitnamilegacy/minio:2025.4.22` (same release), with data at `/bitnami/minio/data` and a `curl` health check.
+- **Found:** the seed fingerprint differed between the Mac (`2824c0f543177b7e`) and the container. Traced it to Faker's `date_between`, which goes through local time: 84 of 1,000 dates of birth were a day apart between IST and UTC. Dates of birth now come from the seeded `rng`, and a new test seeds under three time zones. The fingerprint is now `3db173f11c0d0f79` on both.
+- Also fixed: the test pack's secrets check matched its own text; Alembic's `path_separator` deprecation warning.
+- Results on the real stack after `make reset` and `make up`: A1–A10 all pass, 35/35 tests in about 1 s, lint clean, `audio` bucket carries the 1-day expiry rule.
+- Removed the temporary `sahyog-local/postgres-pgvector` image built during the Docker outage.
+- **Next:** user runs the revised S0 test pack and gives a verdict.

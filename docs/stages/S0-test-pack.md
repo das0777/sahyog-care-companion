@@ -4,37 +4,36 @@
 |---|---|
 | **Stage** | S0 Foundation |
 | **Branch** | `stage/s0-foundation` |
-| **Handed over** | 2026-10-29 |
-| **Claude's result** | 33 of 34 tests pass, lint clean. A1, A2 and the health test still need the full Docker stack (see "Blocker") |
+| **Handed over** | 2026-10-29 (revised the same day once the full Docker stack ran) |
+| **Claude's result** | All checks A1–A10 pass on the full Docker stack: 35 of 35 tests, lint clean |
 
-## Blocker found during the build
+## What changed since the first hand-over
 
-Docker Desktop on this Mac could not download images. Every `docker pull`, even `hello-world`, hung without progress, while the Mac itself reached Docker Hub fine and running containers had internet. The pinned images in `docker-compose.yml` (`pgvector/pgvector:0.8.0-pg16`, `redis:7.4-alpine`, `minio/minio:RELEASE.2025-04-22T22-12-26Z`, `python:3.12-slim`) could not be fetched.
+The first version of this pack could not run A1 and A2, because Docker image pulls hung. Pulls recovered later the same day, and running the full stack turned up two problems, both fixed:
 
-To keep going, Claude ran Postgres from an image built locally (`sahyog-local/postgres-pgvector:16-0.8.0`, from your cached `postgres:16-alpine` with pgvector 0.8.0 compiled in) and Redis from your cached `redis:7-alpine`, and ran the API and tests on the Mac with `uv`. MinIO could not be run that way. The compose file itself is unchanged and still uses the official images.
-
-**Your step before testing:** restart Docker Desktop, then check that `docker pull hello-world` finishes. If it still hangs, look at Docker Desktop → Settings → Resources → Proxies.
+1. **MinIO image removed from Docker Hub and Quay.** MinIO no longer publishes community images, so `minio/minio:RELEASE.2025-04-22T22-12-26Z` cannot be pulled anywhere. The stack now uses `bitnamilegacy/minio:2025.4.22`, Bitnami's frozen build of that same MinIO release, so behaviour (buckets, the 24 h audio expiry rule) is unchanged.
+2. **Seed differed by host time zone.** Faker's date-of-birth helper converts through local time, so 84 of 1,000 patients got a date of birth one day apart on the Mac (IST) and in the container (UTC). The date of birth is now drawn from the seeded random generator, and a new test seeds under three time zones and checks the fingerprint is identical. The fingerprint is now `3db173f11c0d0f79` everywhere.
 
 ## Claude's results
 
 | # | Check | Result | Evidence |
 |---|---|---|---|
-| A1 | Stack starts with one command | **Not run** | Blocked by image pulls |
-| A2 | Health reports each dependency | **Partly** | Postgres and Redis report `ok`; MinIO not running, so `/health` returns 503 as designed |
+| A1 | Stack starts with one command | Pass | `make reset` then `make up`: 4 containers healthy and migration `0001` applied in about 32 s |
+| A2 | Health reports each dependency | Pass | `{"status":"ok","postgres":"ok","redis":"ok","minio":"ok"}` |
 | A3 | Schema matches the spec | Pass | `test_all_fourteen_spec_tables_exist`, HNSW and GIN indexes, 4 triggers installed |
-| A4 | Seed complete and repeatable | Pass | Two full runs: 38 / 12 / 500 / 42,000 / 1,000 / 50 / 360, fingerprint `2824c0f543177b7e` both times, about 2 s each |
+| A4 | Seed complete and repeatable | Pass | Two runs in the container and one on the Mac: 38 / 12 / 500 / 42,000 / 1,000 / 50 / 360, fingerprint `3db173f11c0d0f79` every time |
 | A5 | Roles enforced | Pass | P0001 → P0002: 403; D0001 → P0002: 200; caregiver, pharmacist, compliance: 403 |
 | A6 | Every read audited | Pass | `/audit?record_id=P0002` shows the denied patient read, the allowed doctor read, and the compliance query itself |
-| A7 | Audit cannot be altered | Pass | UPDATE, DELETE and TRUNCATE on `audit_event` rejected by trigger |
+| A7 | Audit cannot be altered | Pass | `ERROR: audit_event is append-only: UPDATE rejected`; DELETE and TRUNCATE also rejected (tests) |
 | A8 | Block cannot be overbooked | Pass | Same `(slot_id, token_no)` rejected; token above capacity rejected; duplicate idempotency key rejected |
 | A9 | No secrets committed | Pass | `.env` git-ignored; only local dev defaults in `.env.example` |
-| A10 | All tests green, lint clean | **33 / 34** | Only `test_health_reports_each_dependency` fails, because MinIO is missing |
+| A10 | All tests green, lint clean | Pass | `35 passed in 0.99s`; `All checks passed!` |
 
-Extra checks beyond the stage doc: a failed audit write returns 500 and no data; a signed clinical note cannot be updated or deleted, while a draft can; seeding never clears the audit log; seeded phones are all in the non-mobile `+91 55` range.
+Extra checks beyond the stage doc: a failed audit write returns 500 and no data; a signed clinical note cannot be updated or deleted, while a draft can; seeding never clears the audit log; seeded phones are all in the non-mobile `+91 55` range; the `audio` bucket carries the `audio-expiry` rule (1 day); the seed is identical in every host time zone.
 
 ## Your test script
 
-Run these from `~/Desktop/sahyog-care-companion` after Docker pulls work. Each step shows what you should see.
+Run these from `~/Desktop/sahyog-care-companion`. Each step shows what you should see.
 
 **1. Start the stack (A1)**
 
@@ -42,7 +41,7 @@ Run these from `~/Desktop/sahyog-care-companion` after Docker pulls work. Each s
 make up
 ```
 
-Expect: four containers reported healthy (`postgres`, `redis`, `minio`, `api`), then `Running upgrade -> 0001`.
+Expect: four containers reported `Healthy` (`postgres`, `redis`, `minio`, `api`), then `Running upgrade  -> 0001`. The first run downloads images and builds the API, so it takes a few minutes; later runs take about 30 s.
 
 **2. Health (A2)**
 
@@ -59,7 +58,7 @@ make seed
 make seed
 ```
 
-Expect both times: specialty 38, clinic 12, doctor 500, slot 42,000, patient 1,000, consent 50, medicine_stock 360, and the same fingerprint (`2824c0f543177b7e`).
+Expect both times: specialty 38, clinic 12, doctor 500, slot 42,000, patient 1,000, consent 50, medicine_stock 360, and fingerprint `3db173f11c0d0f79`.
 
 **4. Roles (A5)**
 
@@ -87,7 +86,7 @@ Expect three rows in order: P0001 patient `denied`, D0001 doctor `allowed` (purp
 docker compose exec postgres psql -U sahyog -d sahyog -c "UPDATE audit_event SET actor_id='X'"
 ```
 
-Expect: `ERROR: audit_event is append-only: UPDATE rejected`.
+Expect: `ERROR:  audit_event is append-only: UPDATE rejected`.
 
 **7. Overbooking (A8) and the full suite (A10)**
 
@@ -96,16 +95,21 @@ make test
 make lint
 ```
 
-Expect: `34 passed`, and `All checks passed!`.
+Expect: `35 passed`, then `All checks passed!`.
 
 **8. Secrets (A9)**
 
 ```bash
-git status --ignored --short | grep .env
-git grep -nE "sk-ant|ANTHROPIC_API_KEY=.+" || echo "no keys"
+git check-ignore .env
+git grep -nE "sk-ant|ANTHROPIC_API_KEY=.+" -- ':!docs' || echo "no keys"
 ```
 
-Expect: `!! .env` (ignored) and `no keys`.
+Expect: `.env`, then `no keys`.
+
+**Optional: look around**
+
+- API docs: http://localhost:8000/docs
+- MinIO console: http://localhost:9101 (login from `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` in `.env`): buckets `audio` and `reports`.
 
 ## Known limitations
 
@@ -113,7 +117,7 @@ Expect: `!! .env` (ignored) and `no keys`.
 - Doctors and desk can read any patient record. Narrowing doctors to their own patients is a later access-matrix refinement.
 - Dev tokens stand in for OIDC and must not be used in any shared environment.
 - Blocks are generated every day, including Sundays, so counts are identical whatever day the seed runs.
-- The test suite takes about 100 s when MinIO is unreachable (the client retries). With MinIO up it should be much faster.
+- `bitnamilegacy/minio` is a frozen image that gets no security updates. That is fine for a local stack; a shared or production setup would use a managed S3-compatible store instead.
 
 ## Your verdict
 
