@@ -1,0 +1,12 @@
+# Model prices for the cost meter, USD per 1M tokens. Never hard-code prices in Python.
+# Update `as_of` and `source` together with the numbers.
+as_of: 2026-10-06
+source: Anthropic first-party API price list (cached in the claude-api reference, 2026-10-06)
+models:
+  claude-sonnet-5-5: {input: 2.00, output: 10.00}
+  claude-haiku-5-5: {input: 0.10, output: 0.50}
+  # Self-hosted in region: no per-token price; compute is costed separately (spec: cost per consultation)
+  llama3.1:8b: {input: 0.0, output: 0.0}
+  fake-small: {input: 0.0, output: 0.0}
+  fake-large: {input: 0.0, output: 0.0}
+  fake-in-region: {input: 0.0, output: 0.0}

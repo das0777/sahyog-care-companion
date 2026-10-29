@@ -1,0 +1,4 @@
+{
+  "description": "an extra field carrying a dose",
+  "reply": "{\"specialty_id\": \"SP03\", \"confidence\": 0.8, \"dose\": \"aspirin 300 mg\"}"
+}

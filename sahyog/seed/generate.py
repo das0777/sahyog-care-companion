@@ -26,9 +26,9 @@ from sahyog.models import (
 from sahyog.seed.catalogue import (
     BLOCK_HOURS,
     CLINICS,
-    GLOBAL_RED_FLAGS,
     MEDICINES,
     SPECIALTIES,
+    red_flag_rules_for,
 )
 
 # Every seeded table, children first. audit_event is never cleared: audit history is permanent.
@@ -82,16 +82,8 @@ def seed(session: Session, *, random_seed: int, scale: Scale = Scale(), tz: str 
         for cid, name, city in CLINICS
     ]
     specialties = [
-        {
-            "specialty_id": sid,
-            "name": name,
-            "red_flag_rules": {
-                "global": GLOBAL_RED_FLAGS,
-                "specific": phrases,
-                "reviewed_by": None,
-            },
-        }
-        for sid, name, _, phrases in SPECIALTIES
+        {"specialty_id": sid, "name": name, "red_flag_rules": red_flag_rules_for(sid)}
+        for sid, name, _ in SPECIALTIES
     ]
     doctors = _doctors(rng, fake, scale.doctors)
     slots = _slots(rng, doctors, first_day, scale.days, zone)
