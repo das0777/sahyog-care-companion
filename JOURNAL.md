@@ -8,10 +8,10 @@ The single record of how this project is executed: where we are, what was done, 
 
 | | |
 |---|---|
-| **Current stage** | S0 Foundation: stage doc in review |
-| **Last thing done** | Defaults accepted; repo initialised; `docs/stages/S0.md` written (2026-10-29) |
-| **Next action** | User reviews and approves `docs/stages/S0.md`; then Claude builds S0 |
-| **Blocked on** | User: approval of the S0 stage doc |
+| **Current stage** | S0 Foundation: in user testing |
+| **Last thing done** | S0 built; 33/34 tests pass; test pack written (2026-10-29) |
+| **Next action** | User fixes Docker pulls, runs `docs/stages/S0-test-pack.md`, and replies "S0 accepted" or lists failures |
+| **Blocked on** | User: Docker Desktop cannot pull images (restart it); then the S0 test run |
 | **Last accepted tag** | none yet |
 
 ### Open decisions
@@ -28,7 +28,7 @@ The single record of how this project is executed: where we are, what was done, 
 
 | Stage | Name | Status | Branch | Tag | Test pack |
 |---|---|---|---|---|---|
-| S0 | Foundation | **Stage doc in review** | `stage/s0-foundation` | | |
+| S0 | Foundation | **In user testing** | `stage/s0-foundation` | | [S0-test-pack.md](docs/stages/S0-test-pack.md) |
 | S1 | Safety core + eval harness | Planned | `stage/s1-safety` | | |
 | S2 | W1 Find my doctor | Planned | `stage/s2-w1` | | |
 | S3 | W2 Ingest | Planned | `stage/s3-w2-ingest` | | |
@@ -105,6 +105,10 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 | 2026-10-29 | Evals and guardrails (S1) come before any graph code (S2) | The PRD's release plan rule: evals exist before graphs |
 | 2026-10-29 | Defaults adopted: repo here, Anthropic API with a fake model for tests and Ollama as fallback, local Docker | User: "Use defaults" |
 | 2026-10-29 | Local ports: API 8000, Postgres 5433, Redis 6380, MinIO 9100/9101 | zerowire's containers already hold 9000 and 6379 on this Mac |
+| 2026-10-29 | Safety rules live in database triggers: append-only audit (including TRUNCATE), immutable signed notes, token within block capacity | They must hold even if application code is wrong |
+| 2026-10-29 | Audit row is committed in its own transaction before data is returned; denied attempts are logged; a failed audit write fails the request | "Never read without logging" (E6.1) |
+| 2026-10-29 | Caregivers denied in S0 rather than allowed without a consent check | Consent enforcement belongs to S4; failing closed is safer |
+| 2026-10-29 | Seed phones use the +91 55 range | Not an Indian mobile range, so no real person can ever be texted |
 
 ---
 
@@ -138,3 +142,21 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 - Wrote `docs/stages/S0.md`: scope (Compose stack, 14 tables, deterministic synthetic seed, dev tokens, audit on every read), what is out, acceptance checks A1–A10, and stage decisions.
 - Found port clashes with the zerowire containers (9000, 6379), so offset the MinIO and Redis ports.
 - **Next:** user reviews and approves the S0 stage doc; then Claude builds S0 and returns a test pack.
+
+### 2026-10-29 · S0 built
+- User approved the S0 stage doc.
+- Built:
+  - the Compose stack and Makefile;
+  - all 14 tables in migration `0001`, with triggers for an append-only audit log, immutable signed notes and token-within-capacity;
+  - a deterministic seed (38 / 12 / 500 / 42,000 / 1,000 / 50 / 360 in about 2 s);
+  - dev tokens with a per-request auth context;
+  - audit on every patient read, including denials;
+  - `/health`, `/me`, `/patients/{id}`, `/doctors` and `/audit`;
+  - README, 14 data contracts and ADR 0001.
+- **Blocker:** Docker Desktop image pulls hang on this Mac, though the Mac and running containers can reach the internet. Worked around it for testing only, with a locally built pgvector Postgres image and cached Redis, running the API and tests on the Mac with `uv`. The compose file still uses the official pinned images.
+- Results: 33/34 tests pass and lint is clean. The only failure is the health test, because MinIO could not run. A1 and A2 are not yet verified on the real stack.
+- Fixed while building:
+  - `alembic` could not import the package (fixed with `prepend_sys_path`);
+  - the dev JWT secret was too short;
+  - a test used a `:1` literal that SQLAlchemy read as a bind parameter.
+- **Next:** user restarts Docker Desktop, runs the S0 test pack, and gives a verdict.
