@@ -8,19 +8,19 @@ The single record of how this project is executed: where we are, what was done, 
 
 | | |
 |---|---|
-| **Current stage** | Pre-S0: planning complete, waiting on three decisions |
-| **Last thing done** | Stage plan and stage-gate process agreed (2026-10-29) |
-| **Next action** | User answers the S0 decisions (below), then Claude writes `docs/stages/S0.md` for approval |
-| **Blocked on** | User: repo location, LLM provider and key, Docker availability |
+| **Current stage** | S0 Foundation: stage doc in review |
+| **Last thing done** | Defaults accepted; repo initialised; `docs/stages/S0.md` written (2026-10-29) |
+| **Next action** | User reviews and approves `docs/stages/S0.md`; then Claude builds S0 |
+| **Blocked on** | User: approval of the S0 stage doc |
 | **Last accepted tag** | none yet |
 
 ### Open decisions
 
 | # | Decision | Proposed default | Status |
 |---|---|---|---|
-| Q1 | Repo location | `~/Desktop/sahyog-care-companion` (this folder), not inside zerowire-v1 | Open |
-| Q2 | LLM provider | Anthropic API: Sonnet 5.5 for triage and drafting, Haiku 5.5 for cheap steps; local Ollama as the in-region fallback; a fake model for all tests. The user adds the key to `.env` themself | Open |
-| Q3 | Docker | Docker Desktop installed and running on the Mac | Open |
+| Q1 | Repo location | `~/Desktop/sahyog-care-companion` (this folder), not inside zerowire-v1 | **Decided** 2026-10-29 |
+| Q2 | LLM provider | Anthropic API: Sonnet 5.5 for triage and drafting, Haiku 5.5 for cheap steps; local Ollama as the in-region fallback; a fake model for all tests. The user adds the key to `.env` themself (needed from S2; S0 and S1 run on the fake model) | **Decided** 2026-10-29 |
+| Q3 | Docker | Docker Desktop installed and running on the Mac | **Confirmed** 2026-10-29: Docker 29.5.3, Compose 5.1.4 |
 
 ---
 
@@ -28,7 +28,7 @@ The single record of how this project is executed: where we are, what was done, 
 
 | Stage | Name | Status | Branch | Tag | Test pack |
 |---|---|---|---|---|---|
-| S0 | Foundation | Planned | `stage/s0-foundation` | | |
+| S0 | Foundation | **Stage doc in review** | `stage/s0-foundation` | | |
 | S1 | Safety core + eval harness | Planned | `stage/s1-safety` | | |
 | S2 | W1 Find my doctor | Planned | `stage/s2-w1` | | |
 | S3 | W2 Ingest | Planned | `stage/s3-w2-ingest` | | |
@@ -103,6 +103,8 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 | 2026-10-28 | Live wait-time estimate is a Pro extension, shown as a range | Needs real per-doctor consultation durations first (from W3 timestamps or a "next patient" tap) |
 | 2026-10-29 | Build in eight gated stages (S0–S7) with user sign-off per stage | User wants to test each stage before moving on |
 | 2026-10-29 | Evals and guardrails (S1) come before any graph code (S2) | The PRD's release plan rule: evals exist before graphs |
+| 2026-10-29 | Defaults adopted: repo here, Anthropic API with a fake model for tests and Ollama as fallback, local Docker | User: "Use defaults" |
+| 2026-10-29 | Local ports: API 8000, Postgres 5433, Redis 6380, MinIO 9100/9101 | zerowire's containers already hold 9000 and 6379 on this Mac |
 
 ---
 
@@ -129,3 +131,10 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 - Agreed the stage-gate process: stage doc → build → Claude's own tests → test pack → user verdict → merge and tag.
 - Created this journal.
 - **Next:** user answers Q1–Q3, then Claude writes the S0 stage doc for approval.
+
+### 2026-10-29 · S0 stage doc
+- User chose the defaults for Q1–Q3. Confirmed tooling on the Mac: Docker 29.5.3, Compose 5.1.4, Python 3.12, uv 0.11.7.
+- Initialised the git repo: `main` holds the journal, and work moved to branch `stage/s0-foundation`.
+- Wrote `docs/stages/S0.md`: scope (Compose stack, 14 tables, deterministic synthetic seed, dev tokens, audit on every read), what is out, acceptance checks A1–A10, and stage decisions.
+- Found port clashes with the zerowire containers (9000, 6379), so offset the MinIO and Redis ports.
+- **Next:** user reviews and approves the S0 stage doc; then Claude builds S0 and returns a test pack.
