@@ -8,10 +8,10 @@ The single record of how this project is executed: where we are, what was done, 
 
 | | |
 |---|---|
-| **Current stage** | S2 W1 Find my doctor: stage doc in review |
+| **Current stage** | S2 W1 Find my doctor: building |
 | **Last thing done** | S1 accepted, merged and tagged; S2 stage doc written (2026-10-30) |
-| **Next action** | User reviews and approves `docs/stages/S2.md`; then Claude builds S2 |
-| **Blocked on** | User: S2 stage doc approval. S2 also needs the user's API key in `.env` and a held-out set not written by Claude |
+| **Next action** | Claude builds S2 |
+| **Blocked on** | Nothing yet. Live measurements need the user's API key in `.env`; the final recall check needs a held-out set not written by Claude |
 | **Last accepted tag** | `s1-accepted` (2026-10-30) |
 
 ### Open decisions
@@ -30,7 +30,7 @@ The single record of how this project is executed: where we are, what was done, 
 |---|---|---|---|---|---|
 | S0 | Foundation | **Accepted** 2026-10-30 | `stage/s0-foundation` | `s0-accepted` | [S0-test-pack.md](docs/stages/S0-test-pack.md) |
 | S1 | Safety core + eval harness | **Accepted** 2026-10-30 | `stage/s1-safety` | `s1-accepted` | [S1-test-pack.md](docs/stages/S1-test-pack.md) |
-| S2 | W1 Find my doctor | Stage doc in review | `stage/s2-w1` | | |
+| S2 | W1 Find my doctor | Building | `stage/s2-w1` | | |
 | S3 | W2 Ingest | Planned | `stage/s3-w2-ingest` | | |
 | S4 | W2 Ask | Planned | `stage/s4-w2-ask` | | |
 | S5 | W3 Scribe | Planned | `stage/s5-w3` | | |
