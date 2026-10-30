@@ -141,6 +141,7 @@ def cost_per_consultation(prices_file: str = "config/prices.yaml", *, days: int 
             or 0.0
         )
         chunks = session.scalar(select(func.count()).select_from(DocChunk))
+    per_run = _typical_run_costs(spans)
     llm = sum(s.cost_usd for s in spans if s.workflow in ("w1", "w2", "w3", "safety"))
     stt = stt_seconds / 60 * infra.get("stt_usd_per_minute", 0.0)
     embed = chunks * infra.get("embedding_usd_per_chunk", 0.0)
@@ -157,4 +158,29 @@ def cost_per_consultation(prices_file: str = "config/prices.yaml", *, days: int 
         "embeddings_usd": round(embed, 4),
         "storage_compute_usd": round(fixed, 4),
         "per_consultation_usd": round(total / consultations, 4) if consultations else None,
+        "typical_model_cost_usd": per_run,
     }
+
+
+def _typical_run_costs(spans: list[TraceSpan]) -> dict:
+    """Mean model cost of one run of each workflow. A trace is one request or one job, so this
+    doesn't depend on how many consultations happened to be signed in the window. The total
+    assumes one triage turn, one record question and one note."""
+    by_trace: dict[str, list[TraceSpan]] = {}
+    for s in spans:
+        by_trace.setdefault(s.trace_id, []).append(s)
+    groups: dict[str, list[float]] = {"triage": [], "record_answer": [], "note_draft": []}
+    for group in by_trace.values():
+        kinds = {s.workflow for s in group}
+        cost = sum(s.cost_usd for s in group)
+        if "w1" in kinds:
+            groups["triage"].append(cost)
+        elif "w2" in kinds:
+            groups["record_answer"].append(cost)
+        elif "w3" in kinds:
+            groups["note_draft"].append(cost)
+    means = {k: round(statistics.mean(v), 5) if v else None for k, v in groups.items()}
+    known = [v for v in means.values() if v is not None]
+    means["one_of_each"] = round(sum(known), 5) if known else None
+    means["runs_counted"] = {k: len(v) for k, v in groups.items()}
+    return means

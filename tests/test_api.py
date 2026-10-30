@@ -16,6 +16,8 @@ def _audit_rows(client, record_id: str) -> list[dict]:
 
 def test_health_reports_each_dependency(client):
     body = client.get("/health").json()
+    worker = body.pop("worker")
+    assert worker in ("ok", "no heartbeat")
     assert body == {"status": "ok", "postgres": "ok", "redis": "ok", "minio": "ok"}
 
 

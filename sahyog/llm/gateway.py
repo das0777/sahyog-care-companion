@@ -172,6 +172,7 @@ class ModelGateway:
                 continue
             except ModelError as e:
                 record.attempts.append(_attempt(route, e, started))
+                log.warning("model call failed: %s", str(e)[:200])  # the provider's words
                 self._log(record, "error", system)
                 raise
 
