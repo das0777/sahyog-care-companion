@@ -8,10 +8,10 @@ The single record of how this project is executed: where we are, what was done, 
 
 | | |
 |---|---|
-| **Current stage** | S3 W2 Ingest: stage doc in review |
+| **Current stage** | S3 W2 Ingest: building |
 | **Last thing done** | S2 accepted, merged and tagged; S3 stage doc written (2026-10-30) |
-| **Next action** | User reviews and approves `docs/stages/S3.md`; then Claude builds S3 |
-| **Blocked on** | User: S3 stage doc approval. User should also revoke the OpenRouter key pasted in chat, if it is still active |
+| **Next action** | Claude builds S3 |
+| **Blocked on** | Nothing. User should also revoke the OpenRouter key pasted in chat, if it is still active |
 | **Last accepted tag** | `s2-accepted` (2026-10-30) |
 
 ### Open decisions
@@ -31,7 +31,7 @@ The single record of how this project is executed: where we are, what was done, 
 | S0 | Foundation | **Accepted** 2026-10-30 | `stage/s0-foundation` | `s0-accepted` | [S0-test-pack.md](docs/stages/S0-test-pack.md) |
 | S1 | Safety core + eval harness | **Accepted** 2026-10-30 | `stage/s1-safety` | `s1-accepted` | [S1-test-pack.md](docs/stages/S1-test-pack.md) |
 | S2 | W1 Find my doctor | **Accepted** 2026-10-30 | `stage/s2-w1` | `s2-accepted` | [S2-test-pack.md](docs/stages/S2-test-pack.md) |
-| S3 | W2 Ingest | Stage doc in review | `stage/s3-w2-ingest` | | |
+| S3 | W2 Ingest | Building | `stage/s3-w2-ingest` | | |
 | S4 | W2 Ask | Planned | `stage/s4-w2-ask` | | |
 | S5 | W3 Scribe | Planned | `stage/s5-w3` | | |
 | S6 | Thin UI | Planned | `stage/s6-ui` | | |

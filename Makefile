@@ -1,4 +1,4 @@
-.PHONY: help up down reset migrate seed test lint fmt token eval eval-live redflag scrub llm-smoke chat desk purge-threads set-key key-from-clipboard logs psql
+.PHONY: help up down reset migrate seed test lint fmt token eval eval-live redflag scrub llm-smoke chat desk purge-threads set-key key-from-clipboard w2-samples logs psql
 
 EXEC = docker compose exec -T api
 
@@ -69,6 +69,9 @@ set-key:  ## Save your model API key to .env without showing it, then restart th
 key-from-clipboard:  ## Same as set-key, using the key you copied
 	@python3 scripts/set_key.py --clipboard
 	@docker compose up -d --wait api
+
+w2-samples:  ## Generate the synthetic report PDFs and their truth file
+	@$(EXEC) python -m sahyog.evals.w2_samples
 
 logs:  ## Follow API logs
 	docker compose logs -f api
