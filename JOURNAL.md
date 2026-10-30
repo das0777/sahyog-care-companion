@@ -8,10 +8,10 @@ The single record of how this project is executed: where we are, what was done, 
 
 | | |
 |---|---|
-| **Current stage** | S2 W1 Find my doctor: building |
-| **Last thing done** | S1 accepted, merged and tagged; S2 stage doc written (2026-10-30) |
-| **Next action** | Claude builds S2 |
-| **Blocked on** | Nothing yet. Live measurements need the user's API key in `.env`; the final recall check needs a held-out set not written by Claude |
+| **Current stage** | S2 W1 Find my doctor: building, offline work done |
+| **Last thing done** | S2 graph, booking and desk built and passing offline; no real model has been called yet (2026-10-30) |
+| **Next action** | User adds the API key; Claude tunes on spent cases, freezes the prompts, then measures |
+| **Blocked on** | User: `LLM_PROVIDER=anthropic` and the API key in `.env`. Later: a held-out set not written by Claude |
 | **Last accepted tag** | `s1-accepted` (2026-10-30) |
 
 ### Open decisions
@@ -117,6 +117,8 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 | 2026-10-30 | Gateway: reject never repair; retry once; fallback; in-region calls never leave the boundary | Spec rules, enforced in code and tests rather than prompts |
 | 2026-10-30 | Anthropic SDK 2.x (API version 2026-10-21); server-side refusal fallback on Sonnet 5.5; SDK retries off | Current SDK; the gateway owns retries so attempts are visible and counted |
 | 2026-10-30 | Proposed for S2: a failed second pass goes to the desk, and held-out recall is reported once, never restated after fixes (pending approval of the stage doc) | The gate must never pass by default; S1 showed that post-fix numbers say little about unseen phrasing |
+| 2026-10-30 | spaCy's name tag is taken only for capitalised Latin words, not a lone sentence-opening word | It was replacing symptoms with placeholders (35 of 126 cases). Costs some recall on unlisted names written in lower case or opening a sentence: 10 of 12 hard sentences leak, against 7 before |
+| 2026-10-30 | Blind sets run only against a frozen prompt hash and only once, enforced by `w1_live` | Makes the measuring order a rule in code, not a promise |
 
 ---
 
@@ -210,3 +212,14 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
   - The golden set has only 17 non-emergency cases (2 Hinglish, 1 Hindi), too few for the accuracy gates; about 50 cases are added before the graph.
 - S2 is the first stage that needs a real model: the user adds an API key to `.env` themself, and supplies a held-out set not written by Claude.
 - **Next:** user reviews and approves the S2 stage doc; then Claude builds S2.
+
+### 2026-10-30 · S2 built, offline
+- User approved the S2 stage doc ("Approve S2").
+- Committed 66 cases and blind probe 3 before any graph or prompt (`bc2918b`).
+- Built: the W1 LangGraph with Postgres checkpoints, model second pass, specialty match, one clarifying question, block booking, SMS stub, desk queue with override, late-block tickets, thread purge, `make chat`, `make desk`, `make eval-live`.
+- **Correction to the S1 report:** S1's B6 said clinical content survived scrubbing, but it measured only lab values and medicines. The scrubber was replacing patient symptoms with name placeholders in 35 of 126 W1 cases. Fixed, and gated as C22 (141/141). The fix lets more unlisted names through (10 of 12 hard sentences, 7 before), recorded as a limitation.
+- Fixed S0's token rule so a cancelled place can be rebooked.
+- Found untracked `name 2.py` copies across the repo from macOS sync, and pytest was collecting them. They are now ignored by pytest and git, and not deleted.
+- Offline results: every gate passes, `GUARDRAILS=off` fails, a paused run survived a real API restart.
+- **Not done:** no real model has been called. Accuracy, recall, false alarms and speed are all unmeasured.
+- **Next:** user adds the API key; Claude tunes on the spent probes and dev cases, freezes the prompts, and measures.
