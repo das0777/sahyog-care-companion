@@ -28,13 +28,24 @@ Roles: `patient`, `caregiver`, `doctor`, `desk`, `pharmacist`, `compliance`. Eve
 ## Safety and evals
 
 ```bash
-make eval                                   # S1 safety evals on the fake model; exits non-zero on a gate failure
+make eval                                   # offline safety, W1 and W2 evals; exits non-zero on a gate failure
 make eval GUARDRAILS=off                    # same run with the guardrails off: must fail
 make redflag text="seene mein dard hai"     # the red-flag gate on one message
 make scrub text="..." patient=P0001         # what would leave the hospital boundary
 ```
 
-Reports go to `evals/reports/` (git-ignored). Every model call goes through `sahyog/llm/gateway.py`; vendor SDKs are imported only in `sahyog/llm/adapters/`. S1 needs no API key. To try one real call, set `LLM_PROVIDER=anthropic` and `ANTHROPIC_API_KEY` in `.env`, then `make llm-smoke`. Rules: `docs/safety/red-flag-rules.md`.
+## Records (W2 ingest)
+
+```bash
+make w2-samples                                       # synthetic report PDFs
+make upload file=evals/w2/generated/text-lab-0.pdf patient=P0001
+make doc-status job=<job_id> patient=P0001
+make search patient=P0001 q="HbA1c"
+```
+
+A separate `worker` service reads, indexes and embeds uploads, entirely inside the boundary. The first `make up` downloads a 2.1 GB embedding model, and `make reset` deletes it. Decisions: `docs/adr/0003-ingest-inside-the-boundary.md`.
+
+Reports go to `evals/reports/` (git-ignored). Every model call goes through `sahyog/llm/gateway.py`; vendor SDKs are imported only in `sahyog/llm/adapters/`. To add a real model's key without showing it, run `make set-key`, then try one call with `make llm-smoke`. Rules: `docs/safety/red-flag-rules.md`.
 
 ## Make targets
 

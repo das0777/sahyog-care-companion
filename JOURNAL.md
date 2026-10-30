@@ -8,10 +8,10 @@ The single record of how this project is executed: where we are, what was done, 
 
 | | |
 |---|---|
-| **Current stage** | S3 W2 Ingest: building |
-| **Last thing done** | S2 accepted, merged and tagged; S3 stage doc written (2026-10-30) |
-| **Next action** | Claude builds S3 |
-| **Blocked on** | Nothing. User should also revoke the OpenRouter key pasted in chat, if it is still active |
+| **Current stage** | S3 W2 Ingest: in user testing |
+| **Last thing done** | S3 built and measured: all gates pass; about 1 scan-read number in 200 is wrong (2026-10-30) |
+| **Next action** | User runs `docs/stages/S3-test-pack.md` and replies "S3 accepted" or lists failures |
+| **Blocked on** | User: the S3 test run and verdict. User should also revoke the OpenRouter key pasted in chat, if it is still active |
 | **Last accepted tag** | `s2-accepted` (2026-10-30) |
 
 ### Open decisions
@@ -31,7 +31,7 @@ The single record of how this project is executed: where we are, what was done, 
 | S0 | Foundation | **Accepted** 2026-10-30 | `stage/s0-foundation` | `s0-accepted` | [S0-test-pack.md](docs/stages/S0-test-pack.md) |
 | S1 | Safety core + eval harness | **Accepted** 2026-10-30 | `stage/s1-safety` | `s1-accepted` | [S1-test-pack.md](docs/stages/S1-test-pack.md) |
 | S2 | W1 Find my doctor | **Accepted** 2026-10-30 | `stage/s2-w1` | `s2-accepted` | [S2-test-pack.md](docs/stages/S2-test-pack.md) |
-| S3 | W2 Ingest | Building | `stage/s3-w2-ingest` | | |
+| S3 | W2 Ingest | **In user testing** | `stage/s3-w2-ingest` | | [S3-test-pack.md](docs/stages/S3-test-pack.md) |
 | S4 | W2 Ask | Planned | `stage/s4-w2-ask` | | |
 | S5 | W3 Scribe | Planned | `stage/s5-w3` | | |
 | S6 | Thin UI | Planned | `stage/s6-ui` | | |
@@ -123,6 +123,9 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 | 2026-10-30 | Second pass and specialty match run side by side; the match answer is used only after the check passes | Triage p95 was 5.5 s in sequence, against a 4 s target. A flagged message also costs one discarded, scrubbed call |
 | 2026-10-30 | Second pass uses the small model | It matched the large one on the spent probes (30/30 each), and it is cheaper |
 | 2026-10-30 | Held-out recall check (C3) skipped for now, by the user | User's choice. S2 has no independent recall number; the check must run before any real use |
+| 2026-10-30 | OCR and embeddings run locally; Postgres is the job queue; the worker is a separate service | Report text stays inside the boundary, and upload and job commit together. See ADR 0003 |
+| 2026-10-30 | A report that clearly names someone else is held, not indexed | The patient filter can't catch a mix-up at upload. Added beyond the spec, and approved with the stage doc |
+| 2026-10-30 | Scan-read chunks are marked, and S4 must say so to the patient | A misread number can't be detected: creatinine 1.72 was read as 172 |
 
 ---
 
@@ -261,3 +264,14 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 - Wrote `docs/stages/S3.md` on branch `stage/s3-w2-ingest`: upload with status, a Postgres-backed worker, a page-by-page ingest graph with OCR, local embeddings, a prompt-injection scan, patient-filtered search, and a proposed wrong-patient check that the spec doesn't have.
 - S3 needs no API key and makes no outside model calls.
 - **Next:** user reviews and approves the S3 stage doc; then Claude builds S3.
+
+### 2026-10-30 · S3 built
+- User approved the S3 stage doc ("Approve S3"). Asked along the way whether there's a front end: not yet, it's S6. Claude offered to bring a patient screen forward; no decision yet.
+- Committed the sample generator and search questions before any ingest code (`bf844ad`). The generator was changed once afterwards, before any measurement, to make the search test harder.
+- Built: upload and status API, a Postgres-backed worker service, page-by-page parsing with Tesseract, local embeddings, a prompt-injection scan, a wrong-patient check, patient-filtered hybrid search, ADR 0003.
+- **Key finding:** D4 failed its first run (185/192). After two narrow fixes, fresh seeds gave 191/192 each, and those misses include creatinine 1.72 read as 172. Such errors can't be detected at ingest, so S4 must tell the patient when a value came from a scan.
+- Fixed: a process crash from PDFium not being thread-safe; a false injection alarm.
+- Two kill tests proved nothing before the third: a real kill during a 40-page scan, retried after 186 s, 40 chunks, no duplicates.
+- Results: every gate passes, `GUARDRAILS=off` fails (D10 396 leaks, D12 0/15), 255 tests, lint clean. No outside model called.
+- Synthetic scans are easy ones: real scans are untested, and that needs anonymised samples from Sahyog.
+- **Next:** user runs the S3 test pack and gives a verdict.
