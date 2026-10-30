@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Status** | All eight stages built. **S4–S7 await your review.** Nothing past S3 is merged or tagged as accepted |
-| **Branch** | `stage/s7-assurance`, which holds S4–S7 stacked on `main` |
+| **Status** | All eight stages built and accepted by the user on 2026-10-30, on `main`. **Accepted as matching the brief, not as ready for patients** |
+| **Branch** | `main`, tags `s0-accepted` to `s7-accepted` |
 | **Date** | 2026-10-30 |
 | **Evidence** | 334 tests and lint green; all offline gates pass on a clean rebuild; 17 checks fail with guardrails off, as they should |
 
@@ -97,13 +97,13 @@ The microphone button and a successful upload through the file picker weren't cl
 | Stage | Test pack | One-line result |
 |---|---|---|
 | S0–S3 | [S0](stages/S0-test-pack.md), [S1](stages/S1-test-pack.md), [S2](stages/S2-test-pack.md), [S3](stages/S3-test-pack.md) | Accepted, tagged, on `main` |
-| S4 Ask | [S4](stages/S4-test-pack.md) | Right answers 23/23 and 5/5 extended; no other patient's data |
-| S5 Scribe | [S5](stages/S5-test-pack.md) | First measured run: precision 93%, gap 4/5, fixed after. Extended 22 dictations: 100% and 9/9 |
-| S6 Screens | [S6](stages/S6.md) | All roles clicked through in a browser |
-| S7 Assurance | [S7](stages/S7.md) | Breaker, traces, cost, MCP server, load test, more cases, this report |
+| S4 Ask (accepted) | [S4](stages/S4-test-pack.md) | Right answers 23/23 and 5/5 extended; no other patient's data |
+| S5 Scribe (accepted) | [S5](stages/S5-test-pack.md) | First measured run: precision 93%, gap 4/5, fixed after. Extended 22 dictations: 100% and 9/9 |
+| S6 Screens (accepted) | [S6](stages/S6.md) | All roles clicked through in a browser |
+| S7 Assurance (accepted) | [S7](stages/S7.md) | Breaker, traces, cost, MCP server, load test, more cases, this report |
 
 **Real model spend for the whole build:** about $4–5 on OpenRouter, added up from each run's printed cost, not from a bill.
 
-## Your review
+## Review
 
-Try it at http://localhost:8000/. Then either reply **"All accepted"**, which merges S4–S7 to `main` and tags each stage, or tell me what to change. Accepting means the build matches what was asked. It doesn't mean it's ready for patients.
+The user replied "All accepted" on 2026-10-30. No results from the user's own testing were reported. Accepting means the build matches what was asked. It doesn't mean it's ready for patients: the list under "Only people can do these" remains open.

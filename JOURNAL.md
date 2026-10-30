@@ -8,11 +8,11 @@ The single record of how this project is executed: where we are, what was done, 
 
 | | |
 |---|---|
-| **Current stage** | All stages built. S4–S7 await the user's review |
-| **Last thing done** | S5, S6 and S7 built and measured; final report written (2026-10-30) |
-| **Next action** | User reviews `docs/FINAL-REPORT.md` and tries http://localhost:8000/, then replies "All accepted" or lists changes |
-| **Blocked on** | User: the review. User should also move the project out of iCloud and revoke the OpenRouter key pasted in chat, if it is still active |
-| **Last accepted tag** | `s3-accepted` (2026-10-30) |
+| **Current stage** | All stages accepted. Not ready for real patients: see the open items in `docs/FINAL-REPORT.md` |
+| **Last thing done** | S4–S7 accepted, merged and tagged (2026-10-30) |
+| **Next action** | None planned. First priority if work continues: independent emergency phrasings, then clinical review |
+| **Blocked on** | Nothing. User should also move the project out of iCloud and revoke the OpenRouter key pasted in chat, if it is still active |
+| **Last accepted tag** | `s7-accepted` (2026-10-30) |
 
 ### Open decisions
 
@@ -32,10 +32,10 @@ The single record of how this project is executed: where we are, what was done, 
 | S1 | Safety core + eval harness | **Accepted** 2026-10-30 | `stage/s1-safety` | `s1-accepted` | [S1-test-pack.md](docs/stages/S1-test-pack.md) |
 | S2 | W1 Find my doctor | **Accepted** 2026-10-30 | `stage/s2-w1` | `s2-accepted` | [S2-test-pack.md](docs/stages/S2-test-pack.md) |
 | S3 | W2 Ingest | **Accepted** 2026-10-30 | `stage/s3-w2-ingest` | `s3-accepted` | [S3-test-pack.md](docs/stages/S3-test-pack.md) |
-| S4 | W2 Ask | **Built, awaiting review** | `stage/s4-w2-ask` | | [S4-test-pack.md](docs/stages/S4-test-pack.md) |
-| S5 | W3 Scribe | **Built, awaiting review** | `stage/s5-w3` | | [S5-test-pack.md](docs/stages/S5-test-pack.md) |
-| S6 | Thin UI | **Built, awaiting review** | `stage/s6-ui` | | [S6.md](docs/stages/S6.md) |
-| S7 | Assurance | **Built, awaiting review** | `stage/s7-assurance` | | [FINAL-REPORT.md](docs/FINAL-REPORT.md) |
+| S4 | W2 Ask | **Accepted** 2026-10-30 | `stage/s4-w2-ask` | `s4-accepted` | [S4-test-pack.md](docs/stages/S4-test-pack.md) |
+| S5 | W3 Scribe | **Accepted** 2026-10-30 | `stage/s5-w3` | `s5-accepted` | [S5-test-pack.md](docs/stages/S5-test-pack.md) |
+| S6 | Thin UI | **Accepted** 2026-10-30 | `stage/s6-ui` | `s6-accepted` | [S6.md](docs/stages/S6.md) |
+| S7 | Assurance | **Accepted** 2026-10-30 | `stage/s7-assurance` | `s7-accepted` | [FINAL-REPORT.md](docs/FINAL-REPORT.md) |
 
 Status values: Planned → Stage doc in review → Building → In user testing → Fixing → **Accepted**.
 
@@ -303,3 +303,9 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 - **Not done, needs people:** independent emergency phrasings, clinical review, real scans and audio, 15 more human grades for the judge, privacy review, real load test, backups. See the final report.
 - Real model spend for the whole build: about $4–5, added up from run output, not from a bill.
 - **Next:** user's review.
+
+### 2026-10-30 · S4–S7 accepted
+- User replied "All accepted". No results from the user's own testing were reported, so S4–S7 rest on Claude's checks alone, as S2 and S3 did for their independent steps.
+- Merged `stage/s7-assurance`, which stacks S4–S7, into `main` (merge commit, history kept). Tags `s4-accepted` to `s7-accepted` mark each stage's last commit. The S7 tag is on the merge.
+- Accepted as matching the brief, **not as ready for patients**. Still open: independent emergency phrasings, clinical review, real scans and audio, human grading for the judge, privacy review of OpenRouter, a real load test, backups.
+- Also open for the user: revoke the OpenRouter key pasted in chat if still in use, move the project out of iCloud, decide about the `name 2` files.
