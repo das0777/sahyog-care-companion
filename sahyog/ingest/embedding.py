@@ -63,3 +63,8 @@ def get_embedder() -> Embedder:
 
 def content_hash(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
+
+
+if __name__ == "__main__":
+    # The model-init service: fetch the model if it isn't there yet
+    get_embedder().query("ready")

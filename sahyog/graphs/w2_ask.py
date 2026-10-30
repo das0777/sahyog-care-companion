@@ -112,7 +112,7 @@ def build_ask(deps: AskDeps) -> Any:
 def _after_rules(state: AskState) -> str:
     if state.get("fired"):
         return "emergency"
-    return "refuse" if state.get("status") == "refuse" else "screen"
+    return {"refuse": "refuse", "not_found": "not_found"}.get(state.get("status", ""), "screen")
 
 
 def _after_screen(state: AskState) -> str:
@@ -164,6 +164,9 @@ class _Nodes:
                     {"rule": f.rule_id, "label": f.label, "kind": f.kind} for f in decision.fired
                 ]
             }
+        if any(p != state["patient_id"] for p in _PATIENT_ID.findall(state["question"])):
+            # Answering could read the caller's own value back as if it were someone else's
+            return {"status": "not_found"}
         return {"status": "refuse"} if asks_for_advice_on_records(state["question"]) else {}
 
     def screen(self, state: AskState) -> AskState:

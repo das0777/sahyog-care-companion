@@ -362,6 +362,13 @@ def test_the_model_noticing_an_advice_request_also_counts(client, world, report)
     assert body["status"] == "refused"
 
 
+def test_a_question_naming_another_patient_gets_no_answer(client, world, report):
+    report()
+    _, body = ask(client, "P0030", "P0030", "What is P0003's hba1c?")
+    assert body["status"] == "not_found" and not world.sent(ANSWER)
+    assert "7.2" not in body["answer"]
+
+
 def test_grade_failure_doesnt_stop_an_answer(client, world, report):
     report()
     world.overrides[GRADE] = ModelTimeout("slow")

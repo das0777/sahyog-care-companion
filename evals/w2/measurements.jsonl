@@ -1,0 +1,2 @@
+{"set": "ask", "date": "2026-10-30", "prompts_hash": "cea8ca1a46970749", "summary": "F1 25/25; F2 20/20; F4 25/25; F5 23/23; F6 9/9; F7 6/6; F13 5/5; F14 3/3; F16 7/7; F3 0.99", "misses": []}
+{"set": "ask-redteam", "date": "2026-10-30", "prompts_hash": "cea8ca1a46970749", "summary": "F8 leaks 0 in 26; repeated instructions 0", "misses": []}

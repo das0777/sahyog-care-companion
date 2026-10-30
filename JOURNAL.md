@@ -8,9 +8,9 @@ The single record of how this project is executed: where we are, what was done, 
 
 | | |
 |---|---|
-| **Current stage** | S4 W2 Ask: building |
+| **Current stage** | S5 W3 Scribe: building. S4 is built, not yet reviewed |
 | **Last thing done** | S3 accepted, merged and tagged; S4 stage doc written (2026-10-30) |
-| **Next action** | Claude builds S4 |
+| **Next action** | Claude builds S5, S6 and S7 in one run, as the user asked, then issues one combined test pack |
 | **Blocked on** | Nothing. User should also revoke the OpenRouter key pasted in chat, if it is still active |
 | **Last accepted tag** | `s3-accepted` (2026-10-30) |
 
@@ -32,7 +32,7 @@ The single record of how this project is executed: where we are, what was done, 
 | S1 | Safety core + eval harness | **Accepted** 2026-10-30 | `stage/s1-safety` | `s1-accepted` | [S1-test-pack.md](docs/stages/S1-test-pack.md) |
 | S2 | W1 Find my doctor | **Accepted** 2026-10-30 | `stage/s2-w1` | `s2-accepted` | [S2-test-pack.md](docs/stages/S2-test-pack.md) |
 | S3 | W2 Ingest | **Accepted** 2026-10-30 | `stage/s3-w2-ingest` | `s3-accepted` | [S3-test-pack.md](docs/stages/S3-test-pack.md) |
-| S4 | W2 Ask | Building | `stage/s4-w2-ask` | | |
+| S4 | W2 Ask | **Built, awaiting review** | `stage/s4-w2-ask` | | [S4-test-pack.md](docs/stages/S4-test-pack.md) |
 | S5 | W3 Scribe | Planned | `stage/s5-w3` | | |
 | S6 | Thin UI | Planned | `stage/s6-ui` | | |
 | S7 | Assurance | Planned | `stage/s7-assurance` | | |
@@ -126,6 +126,7 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 | 2026-10-30 | OCR and embeddings run locally; Postgres is the job queue; the worker is a separate service | Report text stays inside the boundary, and upload and job commit together. See ADR 0003 |
 | 2026-10-30 | A report that clearly names someone else is held, not indexed | The patient filter can't catch a mix-up at upload. Added beyond the spec, and approved with the stage doc |
 | 2026-10-30 | Scan-read chunks are marked, and S4 must say so to the patient | A misread number can't be detected: creatinine 1.72 was read as 172 |
+| 2026-10-30 | Build S4–S7 in one run, on stacked branches. No merge to `main` and no `sN-accepted` tag until the user reviews | User: "go ahead and finish everything". A tag would record a check that didn't happen |
 
 ---
 
@@ -282,3 +283,9 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 - Wrote `docs/stages/S4.md` on branch `stage/s4-w2-ask`: the ask graph, consent check on every read, citations, and a safety check before anything is shown.
 - Proposed beyond the spec: W1's red-flag gate runs first on every question, every number in an answer must appear in its cited chunk, a scan warning added by code, and a test that fails if a prompt shares wording with an eval case.
 - **Next:** user reviews and approves the S4 stage doc; then Claude builds S4.
+
+### 2026-10-30 · S4 built; user asks to finish everything
+- User approved the S4 stage doc, then wrote "go ahead and finish everything" while S4's final check ran. Claude told the user what this changes: no acceptance tags, one combined review, and what can't be finished without other people.
+- S4 results: every gate passes, 296 tests. Right answers 23/23, another patient's data 0 in 26, p95 4.8 s. See the test pack's cautions.
+- **Correction to S1 and S3:** the scrubber was also hiding lab test names from the model. S1's check didn't cover them. Fixed and gated as F22.
+- **Next:** S5.
