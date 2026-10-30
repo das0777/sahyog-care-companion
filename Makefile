@@ -1,4 +1,4 @@
-.PHONY: help up down reset migrate seed test lint fmt token eval eval-live redflag scrub llm-smoke chat desk purge-threads set-key key-from-clipboard w2-samples upload doc-status search ask logs psql
+.PHONY: help up down reset migrate seed test lint fmt token eval eval-live redflag scrub llm-smoke chat desk purge-threads set-key key-from-clipboard w2-samples upload doc-status search ask dictate logs psql
 
 EXEC = docker compose exec -T api
 
@@ -23,6 +23,7 @@ migrate:  ## Apply database migrations
 
 seed:  ## Load deterministic synthetic data (replaces existing seed rows)
 	$(EXEC) python -m sahyog.cli seed
+	@$(EXEC) python -m sahyog.cli stock-csv
 
 test:  ## Run the test suite against the test database
 	$(EXEC) pytest
@@ -50,8 +51,8 @@ scrub:  ## What leaves the boundary: make scrub text="..." [patient=P0001]
 llm-smoke:  ## One real model call (needs a key: make set-key)
 	@$(EXEC) python -m sahyog.cli llm-smoke
 
-eval-live:  ## Real model calls (costs money): set=tune|match|speed|probe3|heldout|ask-tune|ask-freeze|ask|ask-redteam|ask-speed
-	$(EXEC) python -m $(if $(findstring ask,$(set)),sahyog.evals.w2_live,sahyog.evals.w1_live) --set $(set)
+eval-live:  ## Real model calls (costs money): set=tune|match|speed|probe3|heldout|ask-tune|ask-freeze|ask|ask-redteam|ask-speed|scribe-tune|scribe-freeze|scribe|scribe-speed|scribe-audio
+	$(EXEC) python -m $(if $(findstring scribe,$(set)),sahyog.evals.w3_live,$(if $(findstring ask,$(set)),sahyog.evals.w2_live,sahyog.evals.w1_live)) --set $(set)
 
 chat:  ## A whole W1 conversation in the terminal: make chat patient=P0001
 	@docker compose exec api python -m sahyog.cli chat --patient $(patient)
@@ -84,6 +85,9 @@ ask:  ## Ask about reports: make ask patient=P0011 q="my HbA1c?" [as=CG0011]
 
 search:  ## Search a patient's records: make search patient=P0001 q="HbA1c"
 	@$(EXEC) python -m sahyog.cli search --patient $(patient) --q "$(q)"
+
+dictate:  ## Doctor flow on one dictation: make dictate text="..." or file=path.m4a [patient=P0100]
+	@$(EXEC) python -m sahyog.cli dictate $(if $(text),--text "$(text)") $(if $(file),--file "$(file)")
 
 w2-samples:  ## Generate the synthetic report PDFs and their truth file
 	@$(EXEC) python -m sahyog.evals.w2_samples

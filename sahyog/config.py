@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     model_cache_dir: str = "/models"
     ingest_workers: int = 2
     ingest_lease_s: int = 180
+    whisper_model: str = "small"
+    stock_csv: str = "config/stock.csv"
 
     @property
     def has_real_model(self) -> bool:

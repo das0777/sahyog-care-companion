@@ -230,6 +230,7 @@ class Encounter(Base):
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     audio_uri: Mapped[str | None] = mapped_column(Text)  # object expires within 24 h
     transcript_uri: Mapped[str | None] = mapped_column(Text)
+    audio_deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class ClinicalNote(Base):
@@ -245,6 +246,8 @@ class ClinicalNote(Base):
     supersedes: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("clinical_note.note_id"))
     signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     hash: Mapped[str | None] = mapped_column(String(64))
+    edit_history: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
+    review_seconds: Mapped[float | None]
     created_at: Mapped[datetime] = _created_at()
 
     __table_args__ = (
@@ -429,3 +432,35 @@ class EmbeddingCache(Base):
     content_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
     model: Mapped[str] = mapped_column(String(80), primary_key=True)
     embedding: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIM))
+
+
+class ScribeJob(Base):
+    """One dictation's trip through the worker, up to the doctor's review."""
+
+    __tablename__ = "scribe_job"
+
+    job_id: Mapped[uuid.UUID] = _uuid_pk()
+    encounter_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("encounter.encounter_id"))
+    thread_id: Mapped[str] = mapped_column(String(40), unique=True)
+    status: Mapped[str] = mapped_column(String(10), server_default="queued")
+    attempts: Mapped[int] = mapped_column(server_default="0")
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    transcript: Mapped[str | None] = mapped_column(Text)
+    transcribe_seconds: Mapped[float | None]
+    reason: Mapped[str | None] = mapped_column(Text)
+    trace_id: Mapped[str] = mapped_column(String(40))
+    created_at: Mapped[datetime] = _created_at()
+
+    __table_args__ = (Index("ix_scribe_job_queue", "status", "created_at"),)
+
+
+class StockReservation(Base):
+    """A signed note's medicine held against the clinic's stock."""
+
+    __tablename__ = "stock_reservation"
+
+    reservation_id: Mapped[uuid.UUID] = _uuid_pk()
+    note_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("clinical_note.note_id"))
+    medicine_id: Mapped[str] = mapped_column(String(16))
+    clinic_id: Mapped[str] = mapped_column(String(8))
+    created_at: Mapped[datetime] = _created_at()

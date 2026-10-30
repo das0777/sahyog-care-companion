@@ -68,5 +68,19 @@ def build_ask_graph(
 
 
 @lru_cache
+def get_scribe_runtime() -> W1Runtime:
+    from pathlib import Path
+
+    from sahyog.graphs.w3 import ScribeDeps, build_w3
+    from sahyog.scribe.stock import CsvStockAdapter
+
+    deps = ScribeDeps(
+        build_gateway(), CsvStockAdapter(Path(get_settings().stock_csv)), get_sessionmaker()
+    )
+    saver = postgres_checkpointer()
+    return W1Runtime(build_w3(deps, saver), deps, saver)
+
+
+@lru_cache
 def get_ask_graph() -> Any:
     return build_ask_graph()

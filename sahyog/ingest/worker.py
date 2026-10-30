@@ -9,13 +9,16 @@ from pathlib import Path
 
 from sahyog.config import get_settings
 from sahyog.db import get_sessionmaker
+from sahyog.graphs.runtime import get_scribe_runtime
 from sahyog.graphs.w2_ingest import IngestDeps, build_ingest
 from sahyog.ingest.embedding import get_embedder
 from sahyog.ingest.jobs import claim, give_up_on_expired, run_job
+from sahyog.scribe.jobs import claim_scribe, purge_audio, run_scribe_job
 
 log = logging.getLogger("sahyog.ingest")
 READY_FILE = Path("/tmp/worker-ready")  # noqa: S108 - inside the container, for its health check
 POLL_S = 0.5
+AUDIO_SWEEP_S = 600
 
 
 def main() -> None:
@@ -37,13 +40,27 @@ def main() -> None:
                     job = claim(session, lease_s=settings.ingest_lease_s)
                 if job:
                     run_job(graph, sessions, job)
-                else:
-                    time.sleep(POLL_S)
+                    continue
+                with sessions.begin() as session:
+                    scribe = claim_scribe(session, lease_s=settings.ingest_lease_s)
+                if scribe:
+                    run_scribe_job(get_scribe_runtime().graph, sessions, scribe)
+                    continue
+                time.sleep(POLL_S)
             except Exception:  # noqa: BLE001 - e.g. Postgres restarting; keep the pool alive
                 log.exception("worker loop error")
                 time.sleep(POLL_S * 4)
 
-    with ThreadPoolExecutor(settings.ingest_workers) as pool:
+    def sweep() -> None:
+        while True:
+            try:
+                purge_audio(sessions)
+            except Exception:  # noqa: BLE001 - the bucket's expiry rule is the backstop
+                log.exception("audio sweep error")
+            time.sleep(AUDIO_SWEEP_S)
+
+    with ThreadPoolExecutor(settings.ingest_workers + 1) as pool:
+        pool.submit(sweep)
         for _ in range(settings.ingest_workers):
             pool.submit(loop)
 
