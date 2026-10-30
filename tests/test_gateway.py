@@ -9,10 +9,12 @@ import pytest
 from sahyog.llm.adapters.anthropic import AnthropicModel
 from sahyog.llm.adapters.fake import FakeModel, Sequence
 from sahyog.llm.adapters.ollama import OllamaModel
+from sahyog.llm.adapters.openrouter import OpenRouterModel
 from sahyog.llm.gateway import ModelGateway, Prices, Route
 from sahyog.llm.schemas import SpecialtyMatch
 from sahyog.llm.types import (
     BoundaryViolation,
+    ModelError,
     ModelRefused,
     ModelRequest,
     ModelTimeout,
@@ -191,6 +193,110 @@ def test_anthropic_errors_map_to_gateway_errors():
     overloaded = {"type": "error", "error": {"type": "overloaded_error", "message": "busy"}}
     with pytest.raises(ModelUnavailable):
         anthropic_with(lambda r: httpx2.Response(529, json=overloaded)).generate(REQUEST)
+
+
+def openrouter_with(handler):
+    return OpenRouterModel("test-key-not-real", transport=httpx.MockTransport(handler))
+
+
+def completion(text=OK, finish_reason="stop", **message):
+    return {
+        "model": "anthropic/claude-sonnet-5.5",
+        "choices": [
+            {
+                "finish_reason": finish_reason,
+                "message": {"role": "assistant", "content": text, **message},
+            }
+        ],
+        "usage": {"prompt_tokens": 12, "completion_tokens": 7},
+    }
+
+
+def test_openrouter_request_shape():
+    seen = {}
+
+    def handler(request):
+        seen["body"] = json.loads(request.content)
+        seen["auth"] = request.headers["authorization"]
+        return httpx.Response(200, json=completion())
+
+    reply = openrouter_with(handler).generate(REQUEST)
+    body = seen["body"]
+    assert reply.text == OK and (reply.input_tokens, reply.output_tokens) == (12, 7)
+    assert seen["auth"] == "Bearer test-key-not-real"
+    assert body["response_format"]["json_schema"]["schema"] == {"type": "object"}
+    assert body["response_format"]["json_schema"]["strict"] is True
+    assert body["provider"] == {"require_parameters": True, "data_collection": "deny"}
+    assert [m["role"] for m in body["messages"]] == ["system", "user"]
+
+
+@pytest.mark.parametrize(
+    ("status", "payload", "expected"),
+    [
+        (429, {}, ModelUnavailable),
+        (503, {}, ModelUnavailable),
+        (200, {"error": {"code": 502, "message": "upstream down"}}, ModelUnavailable),
+        (401, {"error": {"code": 401, "message": "bad key"}}, ModelError),
+        (402, {"error": {"code": 402, "message": "no credit"}}, ModelError),
+        (200, completion(finish_reason="content_filter"), ModelRefused),
+        (200, completion(refusal="I can't help"), ModelRefused),
+        (200, completion(finish_reason="error"), ModelUnavailable),
+    ],
+    ids=["429", "503", "error_in_200", "401", "402", "filtered", "refusal", "finish_error"],
+)
+def test_openrouter_errors_map_to_gateway_errors(status, payload, expected):
+    model = openrouter_with(lambda r: httpx.Response(status, json=payload))
+    with pytest.raises(expected):
+        model.generate(REQUEST)
+
+
+def test_openrouter_timeout_maps_to_a_gateway_timeout():
+    def slow(_):
+        raise httpx.ReadTimeout("slow")
+
+    with pytest.raises(ModelTimeout):
+        openrouter_with(slow).generate(REQUEST)
+
+
+def test_openrouter_only_ever_receives_scrubbed_text():
+    seen = {}
+
+    def handler(request):
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json=completion(json.dumps({"received": True})))
+
+    from sahyog.llm.schemas import Ack
+
+    gw = ModelGateway(
+        {"openrouter": openrouter_with(handler)},
+        {"small": Route("openrouter", "anthropic/claude-haiku-5.5")},
+        {},
+        PRICES,
+    )
+    result = gw.complete(
+        "small",
+        system="s",
+        prompt="Urvashi Kulkarni, 5522579937",
+        schema=Ack,
+        trace_id="t",
+        patient=KnownIdentity("Urvashi Kulkarni", "+91 5522579937"),
+    )
+    assert seen["body"]["messages"][1]["content"] == "<PERSON_1>, <PHONE_1>"
+    assert result.record.cost_usd == pytest.approx((12 * 0.10 + 7 * 0.50) / 1e6)
+
+
+def test_build_gateway_routes_to_openrouter_and_falls_back_inside_the_boundary():
+    from sahyog.config import Settings
+    from sahyog.llm.gateway import build_gateway
+
+    gw = build_gateway(Settings(llm_provider="openrouter", openrouter_api_key="test-not-real"))
+    assert gw.routes["large"] == Route("openrouter", "anthropic/claude-sonnet-5.5")
+    assert gw.routes["small"] == Route("openrouter", "anthropic/claude-haiku-5.5")
+    assert gw.adapters["openrouter"].in_boundary is False
+    assert gw.fallbacks["large"].provider == "ollama"
+    for route in gw.routes.values():
+        if route.provider == "openrouter":
+            assert PRICES.models[route.model]
 
 
 def test_ollama_adapter():

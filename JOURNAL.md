@@ -8,18 +8,18 @@ The single record of how this project is executed: where we are, what was done, 
 
 | | |
 |---|---|
-| **Current stage** | S1 Safety core + eval harness: in user testing |
-| **Last thing done** | S1 built: all gates pass, 161 tests; blind probes exposed low recall on unseen phrasing (2026-10-30) |
-| **Next action** | User runs `docs/stages/S1-test-pack.md` (step 3 is the real red-flag test) and replies "S1 accepted" or lists failures |
-| **Blocked on** | User: the S1 test run and verdict |
-| **Last accepted tag** | `s0-accepted` (2026-10-30) |
+| **Current stage** | S2 W1 Find my doctor: in user testing |
+| **Last thing done** | S2 measured on a real model through OpenRouter: all gates pass, but probe 3 was not truly blind (2026-10-30) |
+| **Next action** | User gives a verdict on S2: "S2 accepted" or a list of failures. Step 3 was skipped |
+| **Blocked on** | User: the S2 verdict. User should also revoke the OpenRouter key pasted in chat, if it is still active |
+| **Last accepted tag** | `s1-accepted` (2026-10-30) |
 
 ### Open decisions
 
 | # | Decision | Proposed default | Status |
 |---|---|---|---|
 | Q1 | Repo location | `~/Desktop/sahyog-care-companion` (this folder), not inside zerowire-v1 | **Decided** 2026-10-29 |
-| Q2 | LLM provider | Anthropic API: Sonnet 5.5 for triage and drafting, Haiku 5.5 for cheap steps; local Ollama as the in-region fallback; a fake model for all tests. The user adds the key to `.env` themself (needed from S2; S0 and S1 run on the fake model) | **Decided** 2026-10-29 |
+| Q2 | LLM provider | Sonnet 5.5 for triage and drafting, Haiku 5.5 for cheap steps, **through OpenRouter**; local Ollama as the in-region fallback; a fake model for all tests. The user adds the key to `.env` themself | **Decided** 2026-10-29; **changed** 2026-10-30 from direct Anthropic to OpenRouter |
 | Q3 | Docker | Docker Desktop installed and running on the Mac | **Confirmed** 2026-10-29: Docker 29.5.3, Compose 5.1.4 |
 
 ---
@@ -29,8 +29,8 @@ The single record of how this project is executed: where we are, what was done, 
 | Stage | Name | Status | Branch | Tag | Test pack |
 |---|---|---|---|---|---|
 | S0 | Foundation | **Accepted** 2026-10-30 | `stage/s0-foundation` | `s0-accepted` | [S0-test-pack.md](docs/stages/S0-test-pack.md) |
-| S1 | Safety core + eval harness | **In user testing** | `stage/s1-safety` | | [S1-test-pack.md](docs/stages/S1-test-pack.md) |
-| S2 | W1 Find my doctor | Planned | `stage/s2-w1` | | |
+| S1 | Safety core + eval harness | **Accepted** 2026-10-30 | `stage/s1-safety` | `s1-accepted` | [S1-test-pack.md](docs/stages/S1-test-pack.md) |
+| S2 | W1 Find my doctor | **In user testing** | `stage/s2-w1` | | [S2-test-pack.md](docs/stages/S2-test-pack.md) |
 | S3 | W2 Ingest | Planned | `stage/s3-w2-ingest` | | |
 | S4 | W2 Ask | Planned | `stage/s4-w2-ask` | | |
 | S5 | W3 Scribe | Planned | `stage/s5-w3` | | |
@@ -116,6 +116,13 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 | 2026-10-30 | Scrubber layers: known identifiers, Indian patterns, name gazetteer, structural name rules, then NER | spaCy's small English model misses most Indian names and mislabels Hinglish; no single layer was enough |
 | 2026-10-30 | Gateway: reject never repair; retry once; fallback; in-region calls never leave the boundary | Spec rules, enforced in code and tests rather than prompts |
 | 2026-10-30 | Anthropic SDK 2.x (API version 2026-10-21); server-side refusal fallback on Sonnet 5.5; SDK retries off | Current SDK; the gateway owns retries so attempts are visible and counted |
+| 2026-10-30 | Proposed for S2: a failed second pass goes to the desk, and held-out recall is reported once, never restated after fixes (pending approval of the stage doc) | The gate must never pass by default; S1 showed that post-fix numbers say little about unseen phrasing |
+| 2026-10-30 | spaCy's name tag is taken only for capitalised Latin words, not a lone sentence-opening word | It was replacing symptoms with placeholders (35 of 126 cases). Costs some recall on unlisted names written in lower case or opening a sentence: 10 of 12 hard sentences leak, against 7 before |
+| 2026-10-30 | Blind sets run only against a frozen prompt hash and only once, enforced by `w1_live` | Makes the measuring order a rule in code, not a promise |
+| 2026-10-30 | Model calls go through OpenRouter, using the same Claude models; the direct Anthropic adapter stays | User's choice: OpenRouter is the available account. Prices match. It adds a third party to the path of scrubbed text, to be reviewed before real use |
+| 2026-10-30 | Second pass and specialty match run side by side; the match answer is used only after the check passes | Triage p95 was 5.5 s in sequence, against a 4 s target. A flagged message also costs one discarded, scrubbed call |
+| 2026-10-30 | Second pass uses the small model | It matched the large one on the spent probes (30/30 each), and it is cheaper |
+| 2026-10-30 | Held-out recall check (C3) skipped for now, by the user | User's choice. S2 has no independent recall number; the check must run before any real use |
 
 ---
 
@@ -199,3 +206,51 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 - Fixed during the build: the "karna/marna" typo misfire; Presidio flagging test dates; spaCy tagging Hinglish and doses as names; North-East and South Indian names leaking; a name rule eating "HbA1c"; the replay planting no out-of-list names; a stale lint config in the image.
 - Results: every gate passes; `GUARDRAILS=off` fails (B1 0/13, B5 875 leaks); 161 tests; lint clean.
 - **Next:** user runs the S1 test pack, especially step 3 (their own red-flag phrasings), and gives a verdict.
+
+### 2026-10-30 · S1 accepted, S2 stage doc
+- User replied "S1 accepted" and listed no failures. No results from the test pack's step 3 (the user's own red-flag phrasings) were reported, so S1 has no recall number from another author.
+- Merged `stage/s1-safety` into `main` (merge commit, history kept) and tagged `s1-accepted`.
+- Wrote `docs/stages/S2.md` on branch `stage/s2-w1`: the W1 graph, model second pass, specialty match with one clarifying question, block booking, SMS stub, desk queue and override, and a measuring order that freezes prompts before held-out recall is run.
+- **Found while planning:**
+  - S0's token rule stops a cancelled place from ever being rebooked; the fix is planned in migration `0002`.
+  - The golden set has only 17 non-emergency cases (2 Hinglish, 1 Hindi), too few for the accuracy gates; about 50 cases are added before the graph.
+- S2 is the first stage that needs a real model: the user adds an API key to `.env` themself, and supplies a held-out set not written by Claude.
+- **Next:** user reviews and approves the S2 stage doc; then Claude builds S2.
+
+### 2026-10-30 · S2 built, offline
+- User approved the S2 stage doc ("Approve S2").
+- Committed 66 cases and blind probe 3 before any graph or prompt (`bc2918b`).
+- Built: the W1 LangGraph with Postgres checkpoints, model second pass, specialty match, one clarifying question, block booking, SMS stub, desk queue with override, late-block tickets, thread purge, `make chat`, `make desk`, `make eval-live`.
+- **Correction to the S1 report:** S1's B6 said clinical content survived scrubbing, but it measured only lab values and medicines. The scrubber was replacing patient symptoms with name placeholders in 35 of 126 W1 cases. Fixed, and gated as C22 (141/141). The fix lets more unlisted names through (10 of 12 hard sentences, 7 before), recorded as a limitation.
+- Fixed S0's token rule so a cancelled place can be rebooked.
+- Found untracked `name 2.py` copies across the repo from macOS sync, and pytest was collecting them. They are now ignored by pytest and git, and not deleted.
+- Offline results: every gate passes, `GUARDRAILS=off` fails, a paused run survived a real API restart.
+- **Not done:** no real model has been called. Accuracy, recall, false alarms and speed are all unmeasured.
+- **Next:** user adds the API key; Claude tunes on the spent probes and dev cases, freezes the prompts, and measures.
+
+### 2026-10-30 · Move to OpenRouter
+- The user's account is OpenRouter, not Anthropic. An OpenRouter key was pasted into the chat twice. Claude did not save or use it and asked the user to revoke it.
+- User chose OpenRouter ("Build for OpenRouter"). Built the adapter, its routes and prices, and changed `make set-key` to recognise either kind of key. Checked model names and prices against OpenRouter's public model list; nothing has been called with a key yet.
+- **Next:** user revokes the pasted key and adds a new one with `make set-key`.
+
+### 2026-10-30 · S2 paused
+- Several attempts to add the key did not reach `.env`, though the user saw a saved message once; the cause was not found. Claude did not enter the key itself. Added `make key-from-clipboard` as another route.
+- User chose to pause S2.
+- **State:** all S2 work is committed on `stage/s2-w1`, and nothing is merged to `main`. `.env` is back to `LLM_PROVIDER=fake`, so the stack and `make chat` run on the fake model. No real model has been called: accuracy, recall, false alarms and speed are unmeasured, the prompts are not frozen, and no test pack is issued.
+- **Open for the user:** revoke the OpenRouter key pasted in chat. Decide about the untracked `name 2` copies across the repo.
+- **To resume:** copy a new key, run `make key-from-clipboard`, then check with `grep -c '^OPENROUTER_API_KEY=sk-or-' .env`, which should print 1. Claude then runs `make eval-live set=tune`.
+
+### 2026-10-30 · S2 resumed and measured
+- The user saved an OpenRouter key with `make key-from-clipboard` and the first real call worked. The user had not said whether the key pasted in chat was revoked; it should be.
+- Tuned on the spent S1 probes and dev cases only. Froze prompts `82177012808b3bcb`, tag `s2-prompts-frozen`.
+- Measured once: probe 3 rules alone 7/15, combined 15/15; specialty 38/38, non-English 21/21; vague asked 10/10; false alarms 3/53; advice 5/5.
+- **Method slip, found after the run:** the second-pass prompt, written after probe 3 by the same author, echoes its wording, and the match prompt quotes three vague test cases. So probe 3 was not truly blind and those scores are flattered. Numbers left as recorded and disclosed in the test pack. The user's held-out set is the independent check.
+- **Also:** Claude wrote the cases and prompts and a Claude model answered them, so these scores can't show what happens with phrasing Claude wouldn't think of.
+- Fixed from the live runs: over-long safety notes rejecting 5% of replies; triage p95 of 5.5 s, now about 3.4 s with the two calls side by side. The speed test also changed to warm up first and use 51 runs, which contributed to the pass, and this is disclosed.
+- Clean-stack check: 220 tests, lint clean, offline gates pass, `GUARDRAILS=off` fails. Live calls cost about $1.40 in total.
+- **Next:** user runs the S2 test pack, especially step 3 (their own held-out set), and gives a verdict.
+
+### 2026-10-30 · Step 3 skipped
+- User replied "Skip step 3", after the held-out files stayed empty. C3 was not measured, and the one run is still available on the frozen prompts.
+- S2's emergency-recall evidence is therefore only cases written by Claude, including a probe 3 that was not truly blind.
+- **Next:** user's verdict on S2. Not merged and S3 not started until the user writes "S2 accepted".

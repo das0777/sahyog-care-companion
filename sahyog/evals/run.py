@@ -1,4 +1,5 @@
-"""`make eval`: the S1 safety evals, all on the fake model. Exits non-zero on any gate failure.
+"""`make eval`: the safety and W1 path evals, all on the fake model and free to run. Exits non-zero
+on any gate failure. Real accuracy and recall come from `make eval-live`, never from here.
 
 GUARDRAILS=off switches the red-flag gate and the egress scrubber off. That run must fail: it proves
 the evals test the guardrails rather than pass on their own.
@@ -19,12 +20,13 @@ from sqlalchemy import select
 from sahyog.config import get_settings
 from sahyog.db import get_sessionmaker
 from sahyog.evals.egress import build_payloads, detect
+from sahyog.evals.w1_paths import w1_paths
 from sahyog.llm.adapters.fake import FakeModel
 from sahyog.llm.gateway import ModelGateway, Prices, Route
 from sahyog.llm.schemas import Ack, SpecialtyMatch
 from sahyog.llm.types import SchemaRejected
 from sahyog.models import Patient
-from sahyog.safety.deid import KnownIdentity
+from sahyog.safety.deid import KnownIdentity, Scrubber
 from sahyog.safety.red_flags import RedFlagEngine
 
 EVALS = Path("evals")
@@ -59,6 +61,10 @@ def main(argv: list[str] | None = None) -> int:
     schema_checks, schema_details = _schemas()
     checks += schema_checks
     details |= schema_details
+    checks += _symptoms_survive()
+    path_rows, path_details = w1_paths(guardrails)
+    checks += [Check(*row) for row in path_rows]
+    details |= path_details
 
     gated = [c for c in checks if c.passed is not None]
     ok = all(c.passed for c in gated)
@@ -249,11 +255,38 @@ def _schemas():
     return checks, {"schemas": rows}
 
 
+# ---- symptom words survive scrubbing -------------------------------------------------------
+
+
+def _symptoms_survive():
+    """Patient words must reach the model. These cases hold no identifiers, so any change is damage:
+    S1 measured lab values and medicines but not symptoms, and spaCy was eating them."""
+    scrubber = Scrubber()
+    cases = [c for n in ("golden", "match", "probe1", "probe2", "probe3") for c in _cases(n)]
+    damaged = []
+    for c in cases:
+        text = c["input"]
+        for variant in (text, text[0].upper() + text[1:], "Thanks. " + text[0].upper() + text[1:]):
+            if scrubber.scrub(variant).text != variant:
+                damaged.append(c["id"])
+                break
+    return [
+        Check(
+            "C22",
+            "Symptom text unchanged by the scrubber",
+            "≥ 98%",
+            f"{len(cases) - len(damaged)}/{len(cases)}"
+            + (f" — {', '.join(damaged[:5])}" if damaged else ""),
+            (len(cases) - len(damaged)) / len(cases) >= 0.98,
+        )
+    ]
+
+
 # ---- report ------------------------------------------------------------------------------
 
 
 def _print(checks: list[Check], guardrails: bool, version: str, ok: bool) -> None:
-    print(f"\nS1 safety evals — guardrails {'ON' if guardrails else 'OFF'} — rules {version}\n")
+    print(f"\nOffline evals — guardrails {'ON' if guardrails else 'OFF'} — rules {version}\n")
     w = max(len(c.name) for c in checks)
     print(f"{'':4}  {'Check':<{w}}  {'Target':<18}  {'Status':<6}  Result")
     for c in checks:
@@ -263,9 +296,9 @@ def _print(checks: list[Check], guardrails: bool, version: str, ok: bool) -> Non
 
 def _write(checks, details, guardrails: bool, version: str, ok: bool) -> None:
     REPORTS.mkdir(parents=True, exist_ok=True)
-    stem = f"s1-{_today()}" + ("" if guardrails else "-guardrails-off")
+    stem = f"offline-{_today()}" + ("" if guardrails else "-guardrails-off")
     summary = {
-        "stage": "S1",
+        "stage": "S2",
         "date": _today(),
         "guardrails": guardrails,
         "rules_version": version,
@@ -276,7 +309,7 @@ def _write(checks, details, guardrails: bool, version: str, ok: bool) -> None:
         json.dumps(summary | {"details": details}, indent=2, ensure_ascii=False) + "\n"
     )
     lines = [
-        f"# S1 eval report · {summary['date']}",
+        f"# Offline eval report · {summary['date']}",
         "",
         f"Guardrails **{'on' if guardrails else 'off'}** · rules `{version}` · "
         f"**{'all gates pass' if ok else 'gate failure'}**",

@@ -1,4 +1,5 @@
-"""The 14 tables of the spec's data model: the pack's 12 entities plus Clinic and AuditEvent.
+"""The spec's data model: the pack's 12 entities plus Clinic and AuditEvent (S0), and the desk
+ticket, SMS stub and idempotency record added with W1 (S2).
 
 Sensitivity classes (spec, Data model): direct identifiers never leave the boundary; clinical
 content leaves only de-identified; operational data may leave but is audited when tied to a
@@ -25,6 +26,7 @@ from sqlalchemy import (
     Time,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -182,7 +184,21 @@ class Appointment(Base):
     consult_ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (
-        UniqueConstraint("slot_id", "token_no", name="uq_appointment_slot_token"),
+        # Active only, so a cancelled place can be booked again (migration 0002)
+        Index(
+            "uq_appointment_active_token",
+            "slot_id",
+            "token_no",
+            unique=True,
+            postgresql_where=text("status <> 'cancelled'"),
+        ),
+        Index(
+            "uq_appointment_active_patient",
+            "slot_id",
+            "patient_id",
+            unique=True,
+            postgresql_where=text("status <> 'cancelled'"),
+        ),
         CheckConstraint("token_no >= 1", name="appointment_token_positive"),
         CheckConstraint(
             "status IN ('booked', 'checked_in', 'in_consult', 'done', 'cancelled', 'no_show')",
@@ -264,3 +280,83 @@ class AuditEvent(Base):
     __table_args__ = (
         CheckConstraint("outcome IN ('allowed', 'denied')", name="audit_outcome_valid"),
     )
+
+
+class DeskTicket(Base):
+    """Work for the front desk: hand-offs, ER tickets, AI bookings and late blocks (E2.5)."""
+
+    __tablename__ = "desk_ticket"
+
+    ticket_id: Mapped[uuid.UUID] = _uuid_pk()
+    kind: Mapped[str] = mapped_column(String(20))
+    priority: Mapped[int]  # 0 goes first: red flags and safety checks that did not run
+    status: Mapped[str] = mapped_column(String(10), server_default="open")
+    reason: Mapped[str] = mapped_column(Text)
+    reason_codes: Mapped[list[str]] = mapped_column(ARRAY(String(60)), server_default="{}")
+    patient_text: Mapped[str | None] = mapped_column(Text)  # identified; inside the boundary only
+    owner: Mapped[str | None] = mapped_column(String(16))
+    patient_id: Mapped[str | None] = mapped_column(ForeignKey("patient.patient_id"), index=True)
+    appt_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("appointment.appt_id"))
+    slot_id: Mapped[str | None] = mapped_column(ForeignKey("slot.slot_id"))
+    thread_id: Mapped[str | None] = mapped_column(String(40))
+    trace_id: Mapped[str] = mapped_column(String(40))
+    created_at: Mapped[datetime] = _created_at()
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('er', 'safety_unchecked', 'low_confidence', 'advice_request', "
+            "'no_availability', 'model_failure', 'ai_booking', 'late_block')",
+            name="desk_ticket_kind_valid",
+        ),
+        CheckConstraint("status IN ('open', 'claimed', 'closed')", name="desk_ticket_status_valid"),
+        # A retried graph node or a repeated scan never opens a second ticket
+        Index(
+            "uq_desk_ticket_thread_kind",
+            "thread_id",
+            "kind",
+            unique=True,
+            postgresql_where=text("thread_id IS NOT NULL AND kind <> 'ai_booking'"),
+        ),
+        Index(
+            "uq_desk_ticket_appt_kind",
+            "appt_id",
+            "kind",
+            unique=True,
+            postgresql_where=text("appt_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_desk_ticket_late_block",
+            "slot_id",
+            unique=True,
+            postgresql_where=text("kind = 'late_block'"),
+        ),
+        Index("ix_desk_ticket_queue", "status", "priority", "created_at"),
+    )
+
+
+class SmsOutbox(Base):
+    """SMS stub: a template and its variables, never free text and never actually sent."""
+
+    __tablename__ = "sms_outbox"
+
+    sms_id: Mapped[uuid.UUID] = _uuid_pk()
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patient.patient_id"), index=True)
+    template: Mapped[str] = mapped_column(String(40))
+    vars: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
+    appt_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("appointment.appt_id"))
+    trace_id: Mapped[str] = mapped_column(String(40))
+    created_at: Mapped[datetime] = _created_at()
+
+
+class IdempotencyRecord(Base):
+    """First reply to a write, so the same key returns it and a different body gets 409."""
+
+    __tablename__ = "idempotency_record"
+
+    actor_id: Mapped[str] = mapped_column(String(16), primary_key=True)
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    body_hash: Mapped[str] = mapped_column(String(64))
+    status_code: Mapped[int]
+    response: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = _created_at()
