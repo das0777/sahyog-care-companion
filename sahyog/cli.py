@@ -170,6 +170,33 @@ def _search(args: argparse.Namespace) -> None:
         print("   " + h.text[:300].replace("\n", " | "))
 
 
+def _ask(args: argparse.Namespace) -> None:
+    import json
+
+    import httpx
+
+    role, actor = (Role.CAREGIVER, args.as_id) if args.as_id else (Role.PATIENT, args.patient)
+    with httpx.stream(
+        "POST",
+        "http://localhost:8000/w2/ask",
+        json={"question": args.q, "patient_id": args.patient},
+        headers={"Authorization": f"Bearer {issue_token(role, actor)}"},
+        timeout=120,
+    ) as r:
+        if r.status_code == 403:
+            print("403: not permitted to read these records. No data returned.")
+            return
+        for line in r.iter_lines():
+            if not line.startswith("data: ") or line == "data: {}":
+                continue
+            body = json.loads(line.removeprefix("data: "))
+            print(f"[{body['status']}]\n{body['answer']}")
+            for c in body["citations"]:
+                print(f"  source: document {c['doc_id']}, page {c['page']} ({c['source']})")
+            if body.get("ticket_id"):
+                print(f"  desk ticket: {body['ticket_id']}")
+
+
 def _purge(args: argparse.Namespace) -> None:
     from sahyog.graphs.purge import purge
 
@@ -206,6 +233,12 @@ def main(argv: list[str] | None = None) -> None:
     p_search.add_argument("--q", required=True)
     p_search.add_argument("--k", type=int, default=8)
     p_search.set_defaults(fn=_search)
+
+    p_ask = sub.add_parser("ask", help="Ask about a patient's reports, over HTTP")
+    p_ask.add_argument("--patient", required=True)
+    p_ask.add_argument("--q", required=True)
+    p_ask.add_argument("--as", dest="as_id", default=None, help="Caregiver id, e.g. CG0011")
+    p_ask.set_defaults(fn=_ask)
 
     p_purge = sub.add_parser("purge-threads", help="Delete W1 thread state past its expiry")
     p_purge.add_argument("--days", type=int, default=30)

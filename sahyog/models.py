@@ -320,7 +320,7 @@ class DeskTicket(Base):
         CheckConstraint(
             "kind IN ('er', 'safety_unchecked', 'low_confidence', 'advice_request', "
             "'no_availability', 'model_failure', 'ai_booking', 'late_block', 'doc_held', "
-            "'doc_quarantine')",
+            "'doc_quarantine', 'answer_blocked')",
             name="desk_ticket_kind_valid",
         ),
         CheckConstraint("status IN ('open', 'claimed', 'closed')", name="desk_ticket_status_valid"),

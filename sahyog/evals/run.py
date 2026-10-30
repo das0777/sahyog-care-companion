@@ -21,6 +21,7 @@ from sahyog.config import get_settings
 from sahyog.db import get_sessionmaker
 from sahyog.evals.egress import build_payloads, detect
 from sahyog.evals.w1_paths import w1_paths
+from sahyog.evals.w2_ask_paths import w2_ask_paths
 from sahyog.evals.w2_ingest import w2_ingest
 from sahyog.llm.adapters.fake import FakeModel
 from sahyog.llm.gateway import ModelGateway, Prices, Route
@@ -72,6 +73,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     checks += [Check(*row) for row in ingest_rows]
     details |= ingest_details
+    ask_rows, ask_details = w2_ask_paths(guardrails)
+    checks += [Check(*row) for row in ask_rows]
+    details |= ask_details
 
     gated = [c for c in checks if c.passed is not None]
     ok = all(c.passed for c in gated)
