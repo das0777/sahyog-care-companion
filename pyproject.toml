@@ -57,7 +57,7 @@ ignore = ["S101", "S311"]  # asserts in tests; seed RNG is deliberately non-cryp
 
 [tool.ruff.lint.flake8-bugbear]
 # FastAPI dependency markers and the frozen seed Scale are safe as defaults
-extend-immutable-calls = ["fastapi.Depends", "fastapi.Header", "fastapi.Query", "sahyog.seed.generate.Scale"]
+extend-immutable-calls = ["fastapi.Depends", "fastapi.File", "fastapi.Header", "fastapi.Query", "sahyog.seed.generate.Scale"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "anthropic".msg = "Vendor SDKs are imported only in sahyog/llm/adapters/; call the ModelGateway"

@@ -38,6 +38,14 @@ class Settings(BaseSettings):
     llm_timeout_s: float = 20.0
     prices_file: str = "config/prices.yaml"
 
+    # Ingest. Embeddings run locally: report text never leaves the boundary for this
+    embedder: Literal["local", "hash"] = "local"
+    embedding_model: str = "intfloat/multilingual-e5-large"
+    embedding_threads: int = 4
+    model_cache_dir: str = "/models"
+    ingest_workers: int = 2
+    ingest_lease_s: int = 180
+
     @property
     def has_real_model(self) -> bool:
         return (self.llm_provider == "anthropic" and bool(self.anthropic_api_key)) or (

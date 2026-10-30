@@ -18,6 +18,9 @@ SPEC_TABLES = {
     "desk_ticket",
     "sms_outbox",
     "idempotency_record",
+    "ingest_job",
+    "quarantined_chunk",
+    "embedding_cache",
 }
 
 
