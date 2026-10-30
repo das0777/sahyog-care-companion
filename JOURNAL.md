@@ -10,8 +10,8 @@ The single record of how this project is executed: where we are, what was done, 
 |---|---|
 | **Current stage** | S2 W1 Find my doctor: in user testing |
 | **Last thing done** | S2 measured on a real model through OpenRouter: all gates pass, but probe 3 was not truly blind (2026-10-30) |
-| **Next action** | User runs `docs/stages/S2-test-pack.md`, especially step 3 (their own held-out set), and replies "S2 accepted" or lists failures |
-| **Blocked on** | User: the S2 test run, the held-out set and a verdict. User should also revoke the OpenRouter key pasted in chat |
+| **Next action** | User gives a verdict on S2: "S2 accepted" or a list of failures. Step 3 was skipped |
+| **Blocked on** | User: the S2 verdict. User should also revoke the OpenRouter key pasted in chat, if it is still active |
 | **Last accepted tag** | `s1-accepted` (2026-10-30) |
 
 ### Open decisions
@@ -122,6 +122,7 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 | 2026-10-30 | Model calls go through OpenRouter, using the same Claude models; the direct Anthropic adapter stays | User's choice: OpenRouter is the available account. Prices match. It adds a third party to the path of scrubbed text, to be reviewed before real use |
 | 2026-10-30 | Second pass and specialty match run side by side; the match answer is used only after the check passes | Triage p95 was 5.5 s in sequence, against a 4 s target. A flagged message also costs one discarded, scrubbed call |
 | 2026-10-30 | Second pass uses the small model | It matched the large one on the spent probes (30/30 each), and it is cheaper |
+| 2026-10-30 | Held-out recall check (C3) skipped for now, by the user | User's choice. S2 has no independent recall number; the check must run before any real use |
 
 ---
 
@@ -248,3 +249,8 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 - Fixed from the live runs: over-long safety notes rejecting 5% of replies; triage p95 of 5.5 s, now about 3.4 s with the two calls side by side. The speed test also changed to warm up first and use 51 runs, which contributed to the pass, and this is disclosed.
 - Clean-stack check: 220 tests, lint clean, offline gates pass, `GUARDRAILS=off` fails. Live calls cost about $1.40 in total.
 - **Next:** user runs the S2 test pack, especially step 3 (their own held-out set), and gives a verdict.
+
+### 2026-10-30 · Step 3 skipped
+- User replied "Skip step 3", after the held-out files stayed empty. C3 was not measured, and the one run is still available on the frozen prompts.
+- S2's emergency-recall evidence is therefore only cases written by Claude, including a probe 3 that was not truly blind.
+- **Next:** user's verdict on S2. Not merged and S3 not started until the user writes "S2 accepted".

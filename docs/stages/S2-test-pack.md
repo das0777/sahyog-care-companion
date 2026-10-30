@@ -5,7 +5,7 @@
 | **Stage** | S2 W1 Find my doctor |
 | **Branch** | `stage/s2-w1` |
 | **Handed over** | 2026-10-30 |
-| **Claude's result** | All measured gates pass; 220 tests and lint green. **C3, your held-out set, is still open. Read "How far to trust these numbers" first.** |
+| **Claude's result** | All measured gates pass; 220 tests and lint green. **C3, your held-out set, was skipped by the user, so S2 has no independent recall number. Read "How far to trust these numbers" first.** |
 
 ## How far to trust these numbers
 
@@ -33,7 +33,7 @@ From a clean `make reset`, `make up` and `make seed`. Live runs used OpenRouter 
 |---|---|---|---|
 | C1 | Known red flags through the graph | 100% (gate) | **Pass**: 43/43 |
 | C2 | Combined gate on probe 3, once | Reported | 15/15, rules alone 7/15. **Not truly blind** (above) |
-| C3 | Combined gate on your held-out set, once | Target 100%, you decide on misses | **Open: step 3** |
+| C3 | Combined gate on your held-out set, once | Target 100%, you decide on misses | **Skipped by the user, 2026-10-30.** Not measured; still available to run |
 | C4 | False alarms, combined gate | ≤ 20% | **Pass**: 3/53 (6%) |
 | C5 | Specialty accuracy | ≥ 85% (gate) | **Pass**: 38/38. 18 of the 38 also accept a second specialty as right |
 | C6 | Hinglish and Hindi | ≥ 85% (gate) | **Pass**: 21/21 (Hinglish 14/14, Hindi 7/7) |
