@@ -464,3 +464,23 @@ class StockReservation(Base):
     medicine_id: Mapped[str] = mapped_column(String(16))
     clinic_id: Mapped[str] = mapped_column(String(8))
     created_at: Mapped[datetime] = _created_at()
+
+
+class TraceSpan(Base):
+    """One model call: what ran, how long, what it cost. Holds no prompt or reply text."""
+
+    __tablename__ = "trace_span"
+
+    span_id: Mapped[uuid.UUID] = _uuid_pk()
+    trace_id: Mapped[str] = mapped_column(String(40), index=True)
+    workflow: Mapped[str] = mapped_column(String(16))
+    name: Mapped[str] = mapped_column(String(40))
+    provider: Mapped[str | None] = mapped_column(String(40))
+    model: Mapped[str | None] = mapped_column(String(80))
+    outcome: Mapped[str] = mapped_column(String(20))
+    input_tokens: Mapped[int] = mapped_column(server_default="0")
+    output_tokens: Mapped[int] = mapped_column(server_default="0")
+    cost_usd: Mapped[float] = mapped_column(server_default="0")
+    latency_ms: Mapped[float] = mapped_column(server_default="0")
+    scrubbed: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
+    at: Mapped[datetime] = _created_at()

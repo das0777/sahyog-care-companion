@@ -8,6 +8,7 @@ to a provider outside the boundary.
 
 import json
 import logging
+import threading
 import time
 from dataclasses import dataclass
 from functools import cache
@@ -60,6 +61,39 @@ class Prices:
         return (input_tokens * price["input"] + output_tokens * price["output"]) / 1_000_000
 
 
+class CircuitBreaker:
+    """After repeated failures a provider gets no calls for a while. One trial call is let through
+    after the pause, and its result decides. Per process, so replicas decide on their own."""
+
+    def __init__(self, threshold: int = 5, open_seconds: float = 30.0):
+        self.threshold = threshold
+        self.open_seconds = open_seconds
+        self._failures: dict[str, int] = {}
+        self._opened: dict[str, float] = {}
+        self._lock = threading.Lock()
+
+    def allows(self, provider: str) -> bool:
+        with self._lock:
+            opened = self._opened.get(provider)
+            if opened is None:
+                return True
+            if time.monotonic() - opened >= self.open_seconds:
+                self._opened[provider] = time.monotonic()  # the next call is the trial
+                return True
+            return False
+
+    def failure(self, provider: str) -> None:
+        with self._lock:
+            self._failures[provider] = self._failures.get(provider, 0) + 1
+            if self._failures[provider] >= self.threshold:
+                self._opened[provider] = time.monotonic()
+
+    def success(self, provider: str) -> None:
+        with self._lock:
+            self._failures.pop(provider, None)
+            self._opened.pop(provider, None)
+
+
 class ModelGateway:
     def __init__(
         self,
@@ -71,7 +105,11 @@ class ModelGateway:
         scrubber: Scrubber | None = None,
         timeout_s: float = 20.0,
         scrub_enabled: bool = True,
+        tracing: bool = False,
+        breaker: "CircuitBreaker | None" = None,
     ):
+        self.tracing = tracing
+        self.breaker = breaker or CircuitBreaker()
         self.adapters = adapters
         self.routes = routes
         self.fallbacks = fallbacks
@@ -103,6 +141,11 @@ class ModelGateway:
             if i == 1 and isinstance(last_error, ModelRefused):
                 continue  # a refusal is not retried on the same provider
             adapter = self.adapters[route.provider]
+            if not self.breaker.allows(route.provider):
+                # Failing fast sends the patient to a person now, instead of after a long timeout
+                record.attempts.append(Attempt(route.provider, route.model, "unavailable", 0.0))
+                last_error = ModelUnavailable(f"circuit open for {route.provider}")
+                continue
             if task == "in_region" and not adapter.in_boundary:
                 raise BoundaryViolation(f"in-region call would go to {route.provider}")
             sent, scrub = prompt, None
@@ -124,12 +167,15 @@ class ModelGateway:
             except (ModelTimeout, ModelUnavailable, ModelRefused) as e:
                 record.attempts.append(_attempt(route, e, started))
                 last_error = e
+                if not isinstance(e, ModelRefused):
+                    self.breaker.failure(route.provider)
                 continue
             except ModelError as e:
                 record.attempts.append(_attempt(route, e, started))
-                self._log(record, "error")
+                self._log(record, "error", system)
                 raise
 
+            self.breaker.success(route.provider)
             record.provider, record.model = route.provider, reply.model
             record.input_tokens += reply.input_tokens
             record.output_tokens += reply.output_tokens
@@ -142,19 +188,23 @@ class ModelGateway:
                 record.attempts.append(
                     Attempt(route.provider, route.model, "schema_rejected", _ms(started))
                 )
-                self._log(record, "schema_rejected")
+                self._log(record, "schema_rejected", system)
                 message = f"{schema.__name__}: {e.error_count()} validation errors"
                 raise SchemaRejected(message, reply.text) from e
             record.attempts.append(Attempt(route.provider, route.model, "ok", _ms(started)))
             if scrub and scrub.mapping:
                 output = schema.model_validate(_reidentify(output.model_dump(mode="json"), scrub))
-            self._log(record, "ok")
+            self._log(record, "ok", system)
             return Result(output, record)
 
-        self._log(record, "exhausted")
+        self._log(record, "exhausted", system)
         raise last_error or ModelError("no provider answered")
 
-    def _log(self, record: CallRecord, outcome: str) -> None:
+    def _log(self, record: CallRecord, outcome: str, system: str = "") -> None:
+        if self.tracing:
+            from sahyog.observability import record_span
+
+            record_span(record, system, outcome)
         log.info(
             json.dumps(
                 {
@@ -215,7 +265,9 @@ def build_gateway(settings=None) -> ModelGateway:
         }
         fallback = Route("ollama", s.llm_in_region_model)
     fallbacks: dict[TaskClass, Route] = {"small": fallback, "large": fallback}
-    return ModelGateway(adapters, routes, fallbacks, prices, timeout_s=s.llm_timeout_s)
+    return ModelGateway(
+        adapters, routes, fallbacks, prices, timeout_s=s.llm_timeout_s, tracing=True
+    )
 
 
 # ---- helpers -----------------------------------------------------------------------------

@@ -52,15 +52,25 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--set",
         required=True,
-        choices=["ask-tune", "ask-freeze", "ask", "ask-redteam", "ask-speed"],
+        choices=[
+            "ask-tune",
+            "ask-freeze",
+            "ask",
+            "ask-ext",
+            "ask-redteam",
+            "ask-speed",
+            "ask-calibrate",
+        ],
     )
     args = parser.parse_args(argv)
+    if args.set == "ask-calibrate":
+        return _calibrate()
     settings = get_settings()
     if not settings.has_real_model:
         sys.exit("Needs a real model. Run `make key-from-clipboard` yourself, then run this again.")
     if args.set == "ask-freeze":
         return _freeze(settings)
-    if args.set in ("ask", "ask-redteam"):
+    if args.set in ("ask", "ask-ext", "ask-redteam"):
         _guard(args.set)
     gateway = build_gateway(settings)
     world = _World(gateway)
@@ -74,6 +84,8 @@ def main(argv: list[str] | None = None) -> int:
                 [c for c in cases if c["split"] == "test" and c["kind"] != "redteam"],
                 record="ask",
             )
+        elif args.set == "ask-ext":
+            code = _quality(world, [c for c in cases if c["split"] == "ext"], record="ask-ext")
         elif args.set == "ask-redteam":
             code = _redteam(world, [c for c in cases if c["kind"] == "redteam"])
         else:
@@ -224,7 +236,9 @@ def _quality(world: _World, cases: list[dict], *, record: str | None) -> int:
     warned = [r for r in scanned if r.get("scan_warning")]
     blocked = [r for r in rows if r.get("status") == "blocked"]
     failed = [r for r in rows if r.get("status") == "handed_to_desk"]
-    faith = _faithfulness(world, released)
+    faith, graded = _faithfulness(world, released)
+    if record:
+        _write_judge_sample(world, graded)
 
     lines = [
         ("F1", "Answers citing document and page", "100%", len(cited), len(released), 1.0),
@@ -332,7 +346,7 @@ def _faithfulness(world, released) -> float:
     """The published faithfulness method (claims, then verify), through the gateway rather than the
     ragas package, which would call the provider directly and bypass the scrubber."""
 
-    def judge(row) -> float | None:
+    def judge(row) -> tuple | None:
         body = row["answer"].replace(row.get("scan_warning") or "\0", "")
         prompt = (
             f"{w2_prompts.excerpts_block([(_cited_text(world, row), False)])}\n\n"
@@ -350,11 +364,47 @@ def _faithfulness(world, released) -> float:
             return None
         if not result.claims:
             return None
-        return sum(c.supported for c in result.claims) / len(result.claims)
+        return row, sum(c.supported for c in result.claims) / len(result.claims)
 
     with ThreadPoolExecutor(WORKERS) as pool:
-        scores = [s for s in pool.map(judge, released) if s is not None]
-    return statistics.mean(scores) if scores else 0.0
+        graded = [s for s in pool.map(judge, released) if s is not None]
+    return (statistics.mean(s for _, s in graded) if graded else 0.0), graded
+
+
+def _write_judge_sample(world, graded) -> None:
+    """Up to 20 answers for a person to grade. Until they do, the judge stays uncalibrated."""
+    path = W2 / "judge_sample.jsonl"
+    existing = path.read_text().splitlines() if path.exists() else []
+    with path.open("a") as f:
+        for row, score in graded[: max(0, 20 - len(existing))]:
+            f.write(
+                json.dumps(
+                    {
+                        "id": row["case"]["id"],
+                        "question": row["case"]["question"],
+                        "answer": row["answer"],
+                        "cited_text": _cited_text(world, row),
+                        "judge_score": score,
+                        "human_score": None,
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n"
+            )
+
+
+def _calibrate() -> int:
+    rows = [json.loads(ln) for ln in (W2 / "judge_sample.jsonl").read_text().splitlines()]
+    done = [r for r in rows if r["human_score"] is not None]
+    if not done:
+        print(
+            f"Not calibrated: 0 of {len(rows)} answers have a human_score. Fill those in "
+            "evals/w2/judge_sample.jsonl with a score from 0 to 1, then run this again."
+        )
+        return 1
+    gap = statistics.mean(abs(r["judge_score"] - r["human_score"]) for r in done)
+    print(f"{len(done)} graded by a person. Mean difference from the judge: {gap:.2f}.")
+    return 0
 
 
 # ---- red team ------------------------------------------------------------------------------

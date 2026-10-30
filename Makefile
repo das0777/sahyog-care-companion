@@ -1,4 +1,4 @@
-.PHONY: help up down reset migrate seed test lint fmt token eval eval-live redflag scrub llm-smoke chat desk purge-threads set-key key-from-clipboard w2-samples upload doc-status search ask dictate logs psql
+.PHONY: help up down reset migrate seed test lint fmt token eval eval-live redflag scrub llm-smoke chat desk purge-threads set-key key-from-clipboard w2-samples upload doc-status search ask dictate ops load logs psql
 
 EXEC = docker compose exec -T api
 
@@ -88,6 +88,12 @@ search:  ## Search a patient's records: make search patient=P0001 q="HbA1c"
 
 dictate:  ## Doctor flow on one dictation: make dictate text="..." or file=path.m4a [patient=P0100]
 	@$(EXEC) python -m sahyog.cli dictate $(if $(text),--text "$(text)") $(if $(file),--file "$(file)")
+
+ops:  ## Operations tiles and cost per consultation, from traces
+	@$(EXEC) python -m sahyog.cli ops
+
+load:  ## Load test at the morning peak: make load minutes=5 [rate=1400]
+	$(EXEC) python -m sahyog.evals.load --minutes $(or $(minutes),5) --rate $(or $(rate),1400)
 
 w2-samples:  ## Generate the synthetic report PDFs and their truth file
 	@$(EXEC) python -m sahyog.evals.w2_samples

@@ -54,7 +54,14 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--set",
         required=True,
-        choices=["scribe-tune", "scribe-freeze", "scribe", "scribe-speed", "scribe-audio"],
+        choices=[
+            "scribe-tune",
+            "scribe-freeze",
+            "scribe",
+            "scribe-ext",
+            "scribe-speed",
+            "scribe-audio",
+        ],
     )
     args = parser.parse_args(argv)
     if args.set == "scribe-audio":
@@ -77,28 +84,29 @@ def main(argv=None) -> int:
         )
         print(f"Frozen at {prompts.PROMPTS_HASH}. Commit it and tag s5-prompts-frozen.")
         return 0
-    if args.set == "scribe":
-        _guard()
+    if args.set in ("scribe", "scribe-ext"):
+        _guard(args.set)
     gateway = build_gateway(settings)
     cases = [json.loads(ln) for ln in (W3 / "golden.jsonl").read_text().splitlines()]
     if args.set == "scribe-speed":
         code = _speed(gateway, cases)
     else:
-        split = "dev" if args.set == "scribe-tune" else "test"
-        code = _quality(gateway, [c for c in cases if c["split"] == split], args.set == "scribe")
+        split = {"scribe-tune": "dev", "scribe": "test", "scribe-ext": "ext"}[args.set]
+        record = args.set if args.set != "scribe-tune" else None
+        code = _quality(gateway, [c for c in cases if c["split"] == split], record)
     spent = sum(r.cost_usd for r in gateway.records)
     print(f"\nCost of this run: ${spent:.4f} over {len(gateway.records)} model calls")
     return code
 
 
-def _guard() -> None:
+def _guard(name: str) -> None:
     if not FROZEN.exists():
         sys.exit("Prompts aren't frozen yet.")
     if json.loads(FROZEN.read_text())["prompts_hash"] != prompts.PROMPTS_HASH:
         sys.exit("Prompts changed since the freeze.")
     for line in MEASUREMENTS.read_text().splitlines() if MEASUREMENTS.exists() else []:
         done = json.loads(line)
-        if done["prompts_hash"] == prompts.PROMPTS_HASH:
+        if done["set"] == name and done["prompts_hash"] == prompts.PROMPTS_HASH:
             sys.exit(f"Already measured on these prompts: {done['summary']}.")
 
 
@@ -130,7 +138,7 @@ def _draft(gateway, case) -> dict:
     return {"case": case, "seconds": seconds, "draft": pauses[0] if pauses else None}
 
 
-def _quality(gateway, cases, record: bool) -> int:
+def _quality(gateway, cases, record: str | None) -> int:
     with ThreadPoolExecutor(4) as pool:
         rows = list(pool.map(lambda c: _draft(gateway, c), cases))
     failed = [r for r in rows if r["draft"] is None]
@@ -234,7 +242,7 @@ def _quality(gateway, cases, record: bool) -> int:
             f.write(
                 json.dumps(
                     {
-                        "set": "scribe",
+                        "set": record,
                         "date": _today(),
                         "prompts_hash": prompts.PROMPTS_HASH,
                         "summary": summary,

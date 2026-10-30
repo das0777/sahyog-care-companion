@@ -248,6 +248,12 @@ def _dictate(args: argparse.Namespace) -> None:
     print(json.dumps(draft, indent=1, ensure_ascii=False))
 
 
+def _ops(_: argparse.Namespace) -> None:
+    from sahyog.observability import cost_per_consultation, tiles
+
+    print(json.dumps({"tiles": tiles(), "cost": cost_per_consultation()}, indent=1))
+
+
 def _stock_csv(args: argparse.Namespace) -> None:
     import csv
     from pathlib import Path
@@ -313,6 +319,9 @@ def main(argv: list[str] | None = None) -> None:
     p_dictate.add_argument("--text", default=None)
     p_dictate.add_argument("--file", default=None)
     p_dictate.set_defaults(fn=_dictate)
+
+    p_ops = sub.add_parser("ops", help="Operations tiles and cost per consultation")
+    p_ops.set_defaults(fn=_ops)
 
     p_stock = sub.add_parser("stock-csv", help="Export today's stock as the CSV the scribe reads")
     p_stock.set_defaults(fn=_stock_csv)
