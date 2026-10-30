@@ -8,6 +8,7 @@ because LangGraph re-runs a node from its start on resume.
 """
 
 import hashlib
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date
 from typing import Any, TypedDict
@@ -50,6 +51,7 @@ class W1State(TypedDict, total=False):
     # Gate
     fired: list[dict]
     # Match
+    early_match: dict | None
     specialty_id: str
     specialty_name: str
     alternative: str | None
@@ -186,15 +188,30 @@ class _Nodes:
         return {"fired": [_fired(f) for f in decision.fired]}
 
     def second_pass(self, state: W1State) -> W1State:
+        """The safety check and the specialty match run side by side to meet the 4 s target. The
+        match is only a stored answer until `match_specialty` reads it, which happens only after
+        this check has passed."""
         if not self.d.rules_enabled:
             return {}
-        try:
-            result = self._ask_model(
+        with ThreadPoolExecutor(2) as pool:
+            check = pool.submit(
+                self._ask_model,
                 prompts.SECOND_PASS_TASK,
                 prompts.SECOND_PASS_SYSTEM,
                 RedFlagSecondPass,
                 state,
             )
+            match = None
+            if not asks_for_advice(_joined(state)):
+                match = pool.submit(
+                    self._ask_model,
+                    prompts.MATCH_TASK,
+                    prompts.MATCH_SYSTEM,
+                    SpecialtyMatch,
+                    state,
+                )
+        try:
+            result = check.result()
         except ModelError as e:
             return _to_desk(
                 "safety_unchecked",
@@ -204,14 +221,14 @@ class _Nodes:
                 True,
             )
         flags = result.output.add_flags
-        if not flags:
-            return {}
-        return {
-            "fired": [
-                {"rule": f"model:{f}", "label": result.output.reason, "kind": "model"}
-                for f in flags
-            ]
-        }
+        if flags:
+            return {
+                "fired": [
+                    {"rule": f"model:{f}", "label": result.output.reason, "kind": "model"}
+                    for f in flags
+                ]
+            }
+        return {"early_match": _stored_match(match)}
 
     def er_handoff(self, state: W1State) -> W1State:
         fired = state["fired"]
@@ -237,15 +254,22 @@ class _Nodes:
     def match_specialty(self, state: W1State) -> W1State:
         if asks_for_advice(_joined(state)):
             return _to_desk("advice_request", "Patient asked for a diagnosis or dose", "advice")
-        try:
-            result = self._ask_model(
-                prompts.MATCH_TASK, prompts.MATCH_SYSTEM, SpecialtyMatch, state
-            )
-        except ModelError as e:
+        stored = state.get("early_match")
+        if stored and stored.get("error"):
             return _to_desk(
-                "model_failure", f"Specialty match failed ({type(e).__name__})", "desk", True
+                "model_failure", f"Specialty match failed ({stored['error']})", "desk", True
             )
-        match = result.output
+        if stored:
+            match = SpecialtyMatch.model_validate(stored["match"])
+        else:
+            try:
+                match = self._ask_model(
+                    prompts.MATCH_TASK, prompts.MATCH_SYSTEM, SpecialtyMatch, state
+                ).output
+            except ModelError as e:
+                return _to_desk(
+                    "model_failure", f"Specialty match failed ({type(e).__name__})", "desk", True
+                )
         if match.wants_diagnosis_or_dose:
             return _to_desk("advice_request", "Patient asked for a diagnosis or dose", "advice")
         with self.d.sessions() as session:
@@ -419,6 +443,15 @@ class _Nodes:
 def book_key(patient_id: str, client_key: str) -> str:
     """The appointment's key, per patient: one patient's key can't touch another's booking."""
     return "w1:" + hashlib.sha256(f"{patient_id}:{client_key}".encode()).hexdigest()[:60]
+
+
+def _stored_match(future) -> dict | None:
+    if future is None:
+        return None
+    try:
+        return {"match": future.result().output.model_dump()}
+    except ModelError as e:
+        return {"error": type(e).__name__}
 
 
 def _to_desk(kind: str, reason: str, message: str, unavailable: bool = False) -> W1State:

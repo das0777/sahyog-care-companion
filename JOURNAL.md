@@ -8,10 +8,10 @@ The single record of how this project is executed: where we are, what was done, 
 
 | | |
 |---|---|
-| **Current stage** | S2 W1 Find my doctor: **paused by the user**, offline work done |
-| **Last thing done** | S2 graph, booking and desk built and passing offline; no real model has been called yet (2026-10-30) |
-| **Next action** | When the user resumes: they add an OpenRouter key themself (`make key-from-clipboard`, checked with the command in the log); Claude then tunes, freezes the prompts and measures |
-| **Blocked on** | User: decision to resume and an OpenRouter key. Later: a held-out set not written by Claude |
+| **Current stage** | S2 W1 Find my doctor: in user testing |
+| **Last thing done** | S2 measured on a real model through OpenRouter: all gates pass, but probe 3 was not truly blind (2026-10-30) |
+| **Next action** | User runs `docs/stages/S2-test-pack.md`, especially step 3 (their own held-out set), and replies "S2 accepted" or lists failures |
+| **Blocked on** | User: the S2 test run, the held-out set and a verdict. User should also revoke the OpenRouter key pasted in chat |
 | **Last accepted tag** | `s1-accepted` (2026-10-30) |
 
 ### Open decisions
@@ -30,7 +30,7 @@ The single record of how this project is executed: where we are, what was done, 
 |---|---|---|---|---|---|
 | S0 | Foundation | **Accepted** 2026-10-30 | `stage/s0-foundation` | `s0-accepted` | [S0-test-pack.md](docs/stages/S0-test-pack.md) |
 | S1 | Safety core + eval harness | **Accepted** 2026-10-30 | `stage/s1-safety` | `s1-accepted` | [S1-test-pack.md](docs/stages/S1-test-pack.md) |
-| S2 | W1 Find my doctor | **Paused** (built offline) | `stage/s2-w1` | | |
+| S2 | W1 Find my doctor | **In user testing** | `stage/s2-w1` | | [S2-test-pack.md](docs/stages/S2-test-pack.md) |
 | S3 | W2 Ingest | Planned | `stage/s3-w2-ingest` | | |
 | S4 | W2 Ask | Planned | `stage/s4-w2-ask` | | |
 | S5 | W3 Scribe | Planned | `stage/s5-w3` | | |
@@ -120,6 +120,8 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 | 2026-10-30 | spaCy's name tag is taken only for capitalised Latin words, not a lone sentence-opening word | It was replacing symptoms with placeholders (35 of 126 cases). Costs some recall on unlisted names written in lower case or opening a sentence: 10 of 12 hard sentences leak, against 7 before |
 | 2026-10-30 | Blind sets run only against a frozen prompt hash and only once, enforced by `w1_live` | Makes the measuring order a rule in code, not a promise |
 | 2026-10-30 | Model calls go through OpenRouter, using the same Claude models; the direct Anthropic adapter stays | User's choice: OpenRouter is the available account. Prices match. It adds a third party to the path of scrubbed text, to be reviewed before real use |
+| 2026-10-30 | Second pass and specialty match run side by side; the match answer is used only after the check passes | Triage p95 was 5.5 s in sequence, against a 4 s target. A flagged message also costs one discarded, scrubbed call |
+| 2026-10-30 | Second pass uses the small model | It matched the large one on the spent probes (30/30 each), and it is cheaper |
 
 ---
 
@@ -236,3 +238,13 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 - **State:** all S2 work is committed on `stage/s2-w1`, and nothing is merged to `main`. `.env` is back to `LLM_PROVIDER=fake`, so the stack and `make chat` run on the fake model. No real model has been called: accuracy, recall, false alarms and speed are unmeasured, the prompts are not frozen, and no test pack is issued.
 - **Open for the user:** revoke the OpenRouter key pasted in chat. Decide about the untracked `name 2` copies across the repo.
 - **To resume:** copy a new key, run `make key-from-clipboard`, then check with `grep -c '^OPENROUTER_API_KEY=sk-or-' .env`, which should print 1. Claude then runs `make eval-live set=tune`.
+
+### 2026-10-30 · S2 resumed and measured
+- The user saved an OpenRouter key with `make key-from-clipboard` and the first real call worked. The user had not said whether the key pasted in chat was revoked; it should be.
+- Tuned on the spent S1 probes and dev cases only. Froze prompts `82177012808b3bcb`, tag `s2-prompts-frozen`.
+- Measured once: probe 3 rules alone 7/15, combined 15/15; specialty 38/38, non-English 21/21; vague asked 10/10; false alarms 3/53; advice 5/5.
+- **Method slip, found after the run:** the second-pass prompt, written after probe 3 by the same author, echoes its wording, and the match prompt quotes three vague test cases. So probe 3 was not truly blind and those scores are flattered. Numbers left as recorded and disclosed in the test pack. The user's held-out set is the independent check.
+- **Also:** Claude wrote the cases and prompts and a Claude model answered them, so these scores can't show what happens with phrasing Claude wouldn't think of.
+- Fixed from the live runs: over-long safety notes rejecting 5% of replies; triage p95 of 5.5 s, now about 3.4 s with the two calls side by side. The speed test also changed to warm up first and use 51 runs, which contributed to the pass, and this is disclosed.
+- Clean-stack check: 220 tests, lint clean, offline gates pass, `GUARDRAILS=off` fails. Live calls cost about $1.40 in total.
+- **Next:** user runs the S2 test pack, especially step 3 (their own held-out set), and gives a verdict.

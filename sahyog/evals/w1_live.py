@@ -44,6 +44,7 @@ FROZEN = W1 / "frozen.json"
 MEASUREMENTS = W1 / "measurements.jsonl"
 HELDOUT = W1 / "heldout"
 WORKERS = 5
+SPEED_ROUNDS = 3  # enough runs that p95 is not just the single slowest
 
 
 @dataclass
@@ -298,7 +299,9 @@ def _recall(name, cases, engine, gateway) -> int:
 
 def _speed(engine, gateway) -> int:
     runtime = build_runtime(gateway=gateway)
-    calm = [c for c in _cases("golden") if not c["expect"]["red_flag"]]
+    calm = [c for c in _cases("golden") if not c["expect"]["red_flag"]] * SPEED_ROUNDS
+    # A running API has already loaded the name model; the first scrub here would otherwise count it
+    gateway.scrubber.scrub("warm up")
     times, threads = [], []
     for c in calm:
         thread = str(uuid.uuid4())
@@ -325,6 +328,12 @@ def _speed(engine, gateway) -> int:
         f"\nC18 Triage turn through the graph ({len(times)} runs, one at a time): "
         f"median {median:.0f} ms, p95 {p95:.0f} ms (target < 4000 ms)"
     )
+    for task in sorted({r.task for r in gateway.records}):
+        calls = [a.latency_ms for r in gateway.records if r.task == task for a in r.attempts]
+        print(
+            f"    {task} model: median {statistics.median(calls):.0f} ms, "
+            f"p95 {statistics.quantiles(calls, n=20)[-1]:.0f} ms, slowest {max(calls):.0f} ms"
+        )
     print(f"{'PASS' if p95 < 4000 else 'FAIL'}. Not a load test; that is S7.")
     return 0 if p95 < 4000 else 1
 

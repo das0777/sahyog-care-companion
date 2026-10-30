@@ -120,8 +120,9 @@ def test_model_second_pass_adds_a_flag(client, world, patient):
     world.overrides[SECOND] = json.dumps({"add_flags": ["poisoning"], "reason": "swallowed"})
     r = triage(client, patient, "she drank something from under the sink")
     assert r.json()["status"] == "emergency"
-    assert ticket(r.json()["thread_id"]).reason_codes == ["model:poisoning"]
-    assert not world.calls(MATCH)
+    body = r.json()
+    assert ticket(body["thread_id"]).reason_codes == ["model:poisoning"]
+    assert "candidates" not in body and "specialty" not in body
 
 
 def test_model_cannot_talk_the_gate_out_of_a_flag(client, world, patient):
@@ -141,7 +142,7 @@ def test_failed_second_pass_goes_to_the_desk_never_to_booking(client, world, pat
     body = r.json()
     assert r.status_code == 503 and body["handoff"] is True
     assert body["status"] == "handed_to_desk" and "candidates" not in body
-    assert not world.calls(MATCH)
+    assert "specialty" not in body
     t = ticket(body["thread_id"])
     assert t.kind == "safety_unchecked" and t.priority == 0
 
