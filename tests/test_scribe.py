@@ -168,6 +168,14 @@ def test_a_class_stays_a_gap_and_a_missing_dose_is_flagged():
     assert out.medicines[0]["dose_gap"] and "doctor to specify" in out.medicines[0]["text"]
 
 
+def test_a_plural_or_qualified_class_is_still_a_gap():
+    out = grounding.ground_medicines(
+        [{"name": "oral steroids", "dose": "", "span": "a course of oral steroids"}],
+        "Give a course of oral steroids.",
+    )
+    assert out.gaps and not out.medicines
+
+
 def test_a_dose_the_doctor_never_said_is_removed():
     out = grounding.ground_medicines(
         [{"name": "Metformin", "dose": "1000 mg", "span": "continue metformin"}],

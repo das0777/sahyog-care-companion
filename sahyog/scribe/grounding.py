@@ -133,8 +133,8 @@ def ground_medicines(raw: list[dict], doctor: str) -> GroundedMeds:
 
 
 def _is_class(name: str) -> bool:
-    words = name.split()
-    return any(c in (name, *words) or name.endswith(f" {c}") for c in DRUG_CLASSES)
+    singular = " ".join(w.removesuffix("s") for w in name.split())
+    return any(re.search(rf"\b{re.escape(c)}\b", singular) for c in DRUG_CLASSES)
 
 
 def clean_plan_line(text: str, transcript: str) -> tuple[str, list[str]]:
