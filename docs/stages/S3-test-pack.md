@@ -153,7 +153,7 @@ Expect `255 passed`, then `All checks passed!`.
 - Chunks store identifiers, as designed. The gateway scrubs them when they go to a model in S4, and S2's limitation on names outside the list applies there too.
 - No virus scanning, and no way yet to delete a patient's documents on request.
 - `make seed` deletes uploaded documents' database rows but leaves their files in MinIO. Fine locally.
-- Each process that searches holds about 2–3 GB of memory (estimated, not measured), and `make reset` deletes the 2.1 GB model. The image is 1.35 GB. Together these are about 3.5 GB, within the 2–3 GB I estimated only if you don't count the base image.
+- Each process that searches holds about 2–3 GB of memory (estimated, not measured), and `make reset` deletes the 2.1 GB model. S3 added about 2.6 GB of disk: 2.1 GB for the model, and the image grew from about 890 MB to 1.35 GB.
 - Timing comes from one upload at a time or two workers on this Mac, not a load test (S7).
 
 ## Your verdict
