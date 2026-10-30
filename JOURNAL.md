@@ -8,10 +8,10 @@ The single record of how this project is executed: where we are, what was done, 
 
 | | |
 |---|---|
-| **Current stage** | S2 W1 Find my doctor: building, offline work done |
+| **Current stage** | S2 W1 Find my doctor: **paused by the user**, offline work done |
 | **Last thing done** | S2 graph, booking and desk built and passing offline; no real model has been called yet (2026-10-30) |
-| **Next action** | User revokes the key pasted in chat and adds a new OpenRouter key with `make set-key`; Claude then tunes, freezes the prompts and measures |
-| **Blocked on** | User: a new OpenRouter key added with `make set-key`. Later: a held-out set not written by Claude |
+| **Next action** | When the user resumes: they add an OpenRouter key themself (`make key-from-clipboard`, checked with the command in the log); Claude then tunes, freezes the prompts and measures |
+| **Blocked on** | User: decision to resume and an OpenRouter key. Later: a held-out set not written by Claude |
 | **Last accepted tag** | `s1-accepted` (2026-10-30) |
 
 ### Open decisions
@@ -30,7 +30,7 @@ The single record of how this project is executed: where we are, what was done, 
 |---|---|---|---|---|---|
 | S0 | Foundation | **Accepted** 2026-10-30 | `stage/s0-foundation` | `s0-accepted` | [S0-test-pack.md](docs/stages/S0-test-pack.md) |
 | S1 | Safety core + eval harness | **Accepted** 2026-10-30 | `stage/s1-safety` | `s1-accepted` | [S1-test-pack.md](docs/stages/S1-test-pack.md) |
-| S2 | W1 Find my doctor | Building | `stage/s2-w1` | | |
+| S2 | W1 Find my doctor | **Paused** (built offline) | `stage/s2-w1` | | |
 | S3 | W2 Ingest | Planned | `stage/s3-w2-ingest` | | |
 | S4 | W2 Ask | Planned | `stage/s4-w2-ask` | | |
 | S5 | W3 Scribe | Planned | `stage/s5-w3` | | |
@@ -229,3 +229,10 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 - The user's account is OpenRouter, not Anthropic. An OpenRouter key was pasted into the chat twice. Claude did not save or use it and asked the user to revoke it.
 - User chose OpenRouter ("Build for OpenRouter"). Built the adapter, its routes and prices, and changed `make set-key` to recognise either kind of key. Checked model names and prices against OpenRouter's public model list; nothing has been called with a key yet.
 - **Next:** user revokes the pasted key and adds a new one with `make set-key`.
+
+### 2026-10-30 · S2 paused
+- Several attempts to add the key did not reach `.env`, though the user saw a saved message once; the cause was not found. Claude did not enter the key itself. Added `make key-from-clipboard` as another route.
+- User chose to pause S2.
+- **State:** all S2 work is committed on `stage/s2-w1`, and nothing is merged to `main`. `.env` is back to `LLM_PROVIDER=fake`, so the stack and `make chat` run on the fake model. No real model has been called: accuracy, recall, false alarms and speed are unmeasured, the prompts are not frozen, and no test pack is issued.
+- **Open for the user:** revoke the OpenRouter key pasted in chat. Decide about the untracked `name 2` copies across the repo.
+- **To resume:** copy a new key, run `make key-from-clipboard`, then check with `grep -c '^OPENROUTER_API_KEY=sk-or-' .env`, which should print 1. Claude then runs `make eval-live set=tune`.

@@ -1,4 +1,4 @@
-.PHONY: help up down reset migrate seed test lint fmt token eval eval-live redflag scrub llm-smoke chat desk purge-threads set-key logs psql
+.PHONY: help up down reset migrate seed test lint fmt token eval eval-live redflag scrub llm-smoke chat desk purge-threads set-key key-from-clipboard logs psql
 
 EXEC = docker compose exec -T api
 
@@ -64,6 +64,10 @@ purge-threads:  ## Delete W1 thread state past its 30-day expiry
 
 set-key:  ## Save your model API key to .env without showing it, then restart the API
 	@python3 scripts/set_key.py
+	@docker compose up -d --wait api
+
+key-from-clipboard:  ## Same as set-key, using the key you copied
+	@python3 scripts/set_key.py --clipboard
 	@docker compose up -d --wait api
 
 logs:  ## Follow API logs
