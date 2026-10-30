@@ -44,6 +44,7 @@ FROZEN = W1 / "frozen.json"
 MEASUREMENTS = W1 / "measurements.jsonl"
 HELDOUT = W1 / "heldout"
 WORKERS = 5
+HELDOUT_MINIMUM = 20
 SPEED_ROUNDS = 3  # enough runs that p95 is not just the single slowest
 
 
@@ -264,6 +265,12 @@ def _heldout(engine, gateway) -> int:
     calm = HELDOUT / "not_emergency.txt"
     if not emergency.exists():
         sys.exit(f"Add {emergency} and {calm}, one phrasing per line, then run this again.")
+    if len(_lines(emergency)) < HELDOUT_MINIMUM:
+        # This set runs once, so an unfinished file must not use up the run
+        sys.exit(
+            f"{emergency} has {len(_lines(emergency))} phrasings; it needs at least "
+            f"{HELDOUT_MINIMUM}. Nothing was measured."
+        )
     red = [
         {"id": f"held-e{i}", "input": t, "expect": {"red_flag": True}}
         for i, t in enumerate(_lines(emergency), 1)
