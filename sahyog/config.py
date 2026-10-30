@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -23,6 +24,16 @@ class Settings(BaseSettings):
 
     seed_random_seed: int = 42
     timezone: str = "Asia/Kolkata"
+
+    # Model gateway. "fake" needs no key or network and is what tests and `make eval` use.
+    llm_provider: Literal["fake", "anthropic"] = "fake"
+    anthropic_api_key: str = ""
+    llm_small_model: str = "claude-haiku-5-5"
+    llm_large_model: str = "claude-sonnet-5-5"
+    llm_in_region_model: str = "llama3.1:8b"
+    ollama_url: str = "http://host.docker.internal:11434"
+    llm_timeout_s: float = 20.0
+    prices_file: str = "config/prices.yaml"
 
 
 @lru_cache
