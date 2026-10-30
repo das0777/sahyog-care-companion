@@ -334,5 +334,8 @@ def unresolved(state: dict, edits: dict | None) -> list[str]:
     edits = edits or {}
     gaps = edits["gaps"] if "gaps" in edits else state.get("gaps", [])
     meds = edits.get("medicines")
-    dose_gaps = [] if meds is not None else [m for m in state.get("medicines", []) if m["dose_gap"]]
-    return [g["text"] for g in gaps] + [m["text"] for m in dose_gaps]
+    if meds is not None:
+        dose_gaps = [f"{m['name']}: no dose" for m in meds if not m.get("dose", "").strip()]
+    else:
+        dose_gaps = [m["text"] for m in state.get("medicines", []) if m["dose_gap"]]
+    return [g["text"] for g in gaps] + dose_gaps

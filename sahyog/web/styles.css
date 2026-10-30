@@ -69,3 +69,4 @@ button:disabled { opacity: .55; cursor: wait; }
 @media (max-width: 560px) { .med { grid-template-columns: 1fr; } }
 .error { color: var(--danger); font-weight: 600; margin-top: 10px; }
 .spin { color: var(--muted); }
+[hidden] { display: none !important; }

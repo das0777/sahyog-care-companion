@@ -1,10 +1,13 @@
 import logging
 import threading
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
-from sahyog.api import desk, health, records, w1, w2, w3
+from sahyog.api import desk, health, records, ui, w1, w2, w3
 from sahyog.auth import new_trace_id
 from sahyog.config import get_settings
 from sahyog.ingest.embedding import get_embedder
@@ -42,3 +45,12 @@ app.include_router(w1.router)
 app.include_router(desk.router)
 app.include_router(w2.router)
 app.include_router(w3.router)
+app.include_router(ui.router)
+
+
+@app.get("/", include_in_schema=False)
+def home() -> RedirectResponse:
+    return RedirectResponse("/app/")
+
+
+app.mount("/app", StaticFiles(directory=Path(__file__).parent / "web", html=True), name="web")
