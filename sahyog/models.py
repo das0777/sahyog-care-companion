@@ -112,11 +112,21 @@ class Document(Base):
     uri: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(16), server_default="queued")
     phi_status: Mapped[str] = mapped_column(String(16), server_default="identified")
+    content_hash: Mapped[str | None] = mapped_column(String(64))
     uploaded_at: Mapped[datetime] = _created_at()
 
     __table_args__ = (
         CheckConstraint(
-            "status IN ('queued', 'parsed', 'indexed', 'failed')", name="document_status_valid"
+            "status IN ('queued', 'parsed', 'indexed', 'held', 'failed')",
+            name="document_status_valid",
+        ),
+        # The same file for the same patient is one document, unless the first attempt failed
+        Index(
+            "uq_document_patient_content",
+            "patient_id",
+            "content_hash",
+            unique=True,
+            postgresql_where=text("status <> 'failed' AND content_hash IS NOT NULL"),
         ),
     )
 
@@ -133,6 +143,9 @@ class DocChunk(Base):
     page: Mapped[int]
     text: Mapped[str] = mapped_column(Text)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIM))
+    # A misread number can't always be detected, so an OCR-read chunk says so
+    source: Mapped[str] = mapped_column(String(8), server_default="text")
+    ocr_confidence: Mapped[float | None]
     tsv: Mapped[str] = mapped_column(
         TSVECTOR, Computed("to_tsvector('simple', text)", persisted=True)
     )
@@ -306,7 +319,8 @@ class DeskTicket(Base):
     __table_args__ = (
         CheckConstraint(
             "kind IN ('er', 'safety_unchecked', 'low_confidence', 'advice_request', "
-            "'no_availability', 'model_failure', 'ai_booking', 'late_block')",
+            "'no_availability', 'model_failure', 'ai_booking', 'late_block', 'doc_held', "
+            "'doc_quarantine')",
             name="desk_ticket_kind_valid",
         ),
         CheckConstraint("status IN ('open', 'claimed', 'closed')", name="desk_ticket_status_valid"),
@@ -360,3 +374,58 @@ class IdempotencyRecord(Base):
     status_code: Mapped[int]
     response: Mapped[dict[str, Any]] = mapped_column(JSONB)
     created_at: Mapped[datetime] = _created_at()
+
+
+class IngestJob(Base):
+    """One upload's trip through the worker. Postgres is the queue (ADR 0003)."""
+
+    __tablename__ = "ingest_job"
+
+    job_id: Mapped[uuid.UUID] = _uuid_pk()
+    doc_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("document.doc_id", ondelete="CASCADE"))
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patient.patient_id"), index=True)
+    status: Mapped[str] = mapped_column(String(10), server_default="queued")
+    attempts: Mapped[int] = mapped_column(server_default="0")
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    pages_total: Mapped[int | None]
+    pages_ocr: Mapped[int | None]
+    chunks_indexed: Mapped[int | None]
+    chunks_quarantined: Mapped[int | None]
+    reason: Mapped[str | None] = mapped_column(Text)
+    trace_id: Mapped[str] = mapped_column(String(40))
+    created_at: Mapped[datetime] = _created_at()
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('queued', 'running', 'done', 'failed')", name="ingest_job_status_valid"
+        ),
+        Index("ix_ingest_job_queue", "status", "created_at"),
+    )
+
+
+class QuarantinedChunk(Base):
+    """Text flagged by the injection scan. Never indexed and never searched; the desk can see it."""
+
+    __tablename__ = "quarantined_chunk"
+
+    quarantine_id: Mapped[uuid.UUID] = _uuid_pk()
+    doc_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("document.doc_id", ondelete="CASCADE"), index=True
+    )
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patient.patient_id"))
+    page: Mapped[int]
+    text: Mapped[str] = mapped_column(Text)
+    reason: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = _created_at()
+
+
+class EmbeddingCache(Base):
+    """Vectors by content hash, so a re-uploaded report isn't embedded twice. Holds no text."""
+
+    __tablename__ = "embedding_cache"
+
+    content_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    model: Mapped[str] = mapped_column(String(80), primary_key=True)
+    embedding: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIM))

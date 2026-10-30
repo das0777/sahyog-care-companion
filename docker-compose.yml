@@ -54,6 +54,7 @@ services:
       - ./pyproject.toml:/app/pyproject.toml:ro  # lint and test config stay current
       - ./config:/app/config
       - ./evals:/app/evals
+      - models:/models
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -64,6 +65,24 @@ services:
       timeout: 5s
       retries: 20
 
+  # Ingest apart from the API, so OCR and embedding can't starve triage
+  worker:
+    build: .
+    env_file: .env
+    command: python -m sahyog.ingest.worker
+    volumes:
+      - ./sahyog:/app/sahyog
+      - ./config:/app/config
+      - models:/models
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/worker-ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 240  # the first start downloads the embedding model
+
 volumes:
   pgdata:
   miniodata:
+  models:

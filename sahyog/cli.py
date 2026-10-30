@@ -156,6 +156,20 @@ def _desk(_: argparse.Namespace) -> None:
         print(f"   {t['reason']}")
 
 
+def _search(args: argparse.Namespace) -> None:
+    from sahyog.auth import AuthContext, new_trace_id
+    from sahyog.ingest.embedding import get_embedder
+    from sahyog.records.search import retrieve_records
+
+    ctx = AuthContext(args.patient, Role.PATIENT, "self_access", new_trace_id())
+    hits = retrieve_records(ctx, args.patient, args.q, embedder=get_embedder(), k=args.k)
+    print(f"{len(hits)} results for {args.patient}\n")
+    for h in hits:
+        mark = f"OCR {h.ocr_confidence:.0f}%" if h.source == "ocr" else "text"
+        print(f"doc {h.doc_id}  page {h.page}  {mark}  score {h.score:.3f}")
+        print("   " + h.text[:300].replace("\n", " | "))
+
+
 def _purge(args: argparse.Namespace) -> None:
     from sahyog.graphs.purge import purge
 
@@ -186,6 +200,12 @@ def main(argv: list[str] | None = None) -> None:
 
     p_smoke = sub.add_parser("llm-smoke", help="One real model call through the gateway")
     p_smoke.set_defaults(fn=_llm_smoke)
+
+    p_search = sub.add_parser("search", help="Search one patient's records")
+    p_search.add_argument("--patient", required=True)
+    p_search.add_argument("--q", required=True)
+    p_search.add_argument("--k", type=int, default=8)
+    p_search.set_defaults(fn=_search)
 
     p_purge = sub.add_parser("purge-threads", help="Delete W1 thread state past its expiry")
     p_purge.add_argument("--days", type=int, default=30)

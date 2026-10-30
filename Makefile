@@ -1,4 +1,4 @@
-.PHONY: help up down reset migrate seed test lint fmt token eval eval-live redflag scrub llm-smoke chat desk purge-threads set-key key-from-clipboard logs psql
+.PHONY: help up down reset migrate seed test lint fmt token eval eval-live redflag scrub llm-smoke chat desk purge-threads set-key key-from-clipboard w2-samples upload doc-status search logs psql
 
 EXEC = docker compose exec -T api
 
@@ -39,7 +39,7 @@ token:  ## Issue a dev token: make token role=patient id=P0001
 	@$(EXEC) python -m sahyog.cli token --role $(role) --id $(id)
 
 eval:  ## Offline safety and W1 path evals on the fake model; GUARDRAILS=off must fail
-	$(EXEC) python -m sahyog.evals.run --guardrails $(or $(GUARDRAILS),on)
+	$(EXEC) python -m sahyog.evals.run --guardrails $(or $(GUARDRAILS),on) $(if $(W2_SEED),--w2-seed $(W2_SEED))
 
 redflag:  ## Red-flag gate on one message: make redflag text="..." [age=62]
 	@$(EXEC) python -m sahyog.cli redflag --text "$(text)" $(if $(age),--age $(age))
@@ -69,6 +69,21 @@ set-key:  ## Save your model API key to .env without showing it, then restart th
 key-from-clipboard:  ## Same as set-key, using the key you copied
 	@python3 scripts/set_key.py --clipboard
 	@docker compose up -d --wait api
+
+upload:  ## Upload a PDF as a patient: make upload file=path/to/report.pdf patient=P0001
+	@curl -s -X POST localhost:8000/w2/documents \
+		-H "Authorization: Bearer $$($(EXEC) python -m sahyog.cli token --role patient --id $(patient))" \
+		-H "Idempotency-Key: $$(uuidgen)" -F "file=@$(file);type=application/pdf"; echo
+
+doc-status:  ## Status of an upload: make doc-status job=<job_id> patient=P0001
+	@curl -s localhost:8000/w2/documents/$(job) \
+		-H "Authorization: Bearer $$($(EXEC) python -m sahyog.cli token --role patient --id $(patient))"; echo
+
+search:  ## Search a patient's records: make search patient=P0001 q="HbA1c"
+	@$(EXEC) python -m sahyog.cli search --patient $(patient) --q "$(q)"
+
+w2-samples:  ## Generate the synthetic report PDFs and their truth file
+	@$(EXEC) python -m sahyog.evals.w2_samples
 
 logs:  ## Follow API logs
 	docker compose logs -f api
