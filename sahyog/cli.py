@@ -63,8 +63,8 @@ def _llm_smoke(_: argparse.Namespace) -> None:
     from sahyog.llm.schemas import SpecialtyMatch
 
     settings = get_settings()
-    if settings.llm_provider != "anthropic":
-        sys.exit("Set LLM_PROVIDER=anthropic and ANTHROPIC_API_KEY in .env, then rerun")
+    if not settings.has_real_model:
+        sys.exit("No real model is set up. Run `make set-key`, then rerun")
     result = build_gateway(settings).complete(
         "small",
         system="Pick the medical specialty id for the symptoms. SP12 is Orthopaedics, "

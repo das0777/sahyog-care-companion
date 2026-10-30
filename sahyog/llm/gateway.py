@@ -195,16 +195,22 @@ def build_gateway(settings=None) -> ModelGateway:
         }
         fallback = Route("fake-region", "fake-in-region")
     else:
-        from sahyog.llm.adapters.anthropic import AnthropicModel
         from sahyog.llm.adapters.ollama import OllamaModel
 
-        adapters = {
-            "anthropic": AnthropicModel(s.anthropic_api_key),
-            "ollama": OllamaModel(s.ollama_url),
-        }
+        outside: Adapter
+        if s.llm_provider == "openrouter":
+            from sahyog.llm.adapters.openrouter import OpenRouterModel
+
+            outside = OpenRouterModel(s.openrouter_api_key)
+        else:
+            from sahyog.llm.adapters.anthropic import AnthropicModel
+
+            outside = AnthropicModel(s.anthropic_api_key)
+        small, large = s.outside_models
+        adapters = {outside.name: outside, "ollama": OllamaModel(s.ollama_url)}
         routes = {
-            "small": Route("anthropic", s.llm_small_model),
-            "large": Route("anthropic", s.llm_large_model),
+            "small": Route(outside.name, small),
+            "large": Route(outside.name, large),
             "in_region": Route("ollama", s.llm_in_region_model),
         }
         fallback = Route("ollama", s.llm_in_region_model)

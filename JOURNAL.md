@@ -10,8 +10,8 @@ The single record of how this project is executed: where we are, what was done, 
 |---|---|
 | **Current stage** | S2 W1 Find my doctor: building, offline work done |
 | **Last thing done** | S2 graph, booking and desk built and passing offline; no real model has been called yet (2026-10-30) |
-| **Next action** | User adds the API key; Claude tunes on spent cases, freezes the prompts, then measures |
-| **Blocked on** | User: `LLM_PROVIDER=anthropic` and the API key in `.env`. Later: a held-out set not written by Claude |
+| **Next action** | User revokes the key pasted in chat and adds a new OpenRouter key with `make set-key`; Claude then tunes, freezes the prompts and measures |
+| **Blocked on** | User: a new OpenRouter key added with `make set-key`. Later: a held-out set not written by Claude |
 | **Last accepted tag** | `s1-accepted` (2026-10-30) |
 
 ### Open decisions
@@ -19,7 +19,7 @@ The single record of how this project is executed: where we are, what was done, 
 | # | Decision | Proposed default | Status |
 |---|---|---|---|
 | Q1 | Repo location | `~/Desktop/sahyog-care-companion` (this folder), not inside zerowire-v1 | **Decided** 2026-10-29 |
-| Q2 | LLM provider | Anthropic API: Sonnet 5.5 for triage and drafting, Haiku 5.5 for cheap steps; local Ollama as the in-region fallback; a fake model for all tests. The user adds the key to `.env` themself (needed from S2; S0 and S1 run on the fake model) | **Decided** 2026-10-29 |
+| Q2 | LLM provider | Sonnet 5.5 for triage and drafting, Haiku 5.5 for cheap steps, **through OpenRouter**; local Ollama as the in-region fallback; a fake model for all tests. The user adds the key to `.env` themself | **Decided** 2026-10-29; **changed** 2026-10-30 from direct Anthropic to OpenRouter |
 | Q3 | Docker | Docker Desktop installed and running on the Mac | **Confirmed** 2026-10-29: Docker 29.5.3, Compose 5.1.4 |
 
 ---
@@ -119,6 +119,7 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 | 2026-10-30 | Proposed for S2: a failed second pass goes to the desk, and held-out recall is reported once, never restated after fixes (pending approval of the stage doc) | The gate must never pass by default; S1 showed that post-fix numbers say little about unseen phrasing |
 | 2026-10-30 | spaCy's name tag is taken only for capitalised Latin words, not a lone sentence-opening word | It was replacing symptoms with placeholders (35 of 126 cases). Costs some recall on unlisted names written in lower case or opening a sentence: 10 of 12 hard sentences leak, against 7 before |
 | 2026-10-30 | Blind sets run only against a frozen prompt hash and only once, enforced by `w1_live` | Makes the measuring order a rule in code, not a promise |
+| 2026-10-30 | Model calls go through OpenRouter, using the same Claude models; the direct Anthropic adapter stays | User's choice: OpenRouter is the available account. Prices match. It adds a third party to the path of scrubbed text, to be reviewed before real use |
 
 ---
 
@@ -223,3 +224,8 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 - Offline results: every gate passes, `GUARDRAILS=off` fails, a paused run survived a real API restart.
 - **Not done:** no real model has been called. Accuracy, recall, false alarms and speed are all unmeasured.
 - **Next:** user adds the API key; Claude tunes on the spent probes and dev cases, freezes the prompts, and measures.
+
+### 2026-10-30 · Move to OpenRouter
+- The user's account is OpenRouter, not Anthropic. An OpenRouter key was pasted into the chat twice. Claude did not save or use it and asked the user to revoke it.
+- User chose OpenRouter ("Build for OpenRouter"). Built the adapter, its routes and prices, and changed `make set-key` to recognise either kind of key. Checked model names and prices against OpenRouter's public model list; nothing has been called with a key yet.
+- **Next:** user revokes the pasted key and adds a new one with `make set-key`.

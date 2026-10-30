@@ -65,14 +65,11 @@ def main(argv: list[str] | None = None) -> int:
         "--set", required=True, choices=["tune", "freeze", "match", "speed", "probe3", "heldout"]
     )
     args = parser.parse_args(argv)
+    settings = get_settings()
+    if not settings.has_real_model:
+        sys.exit("Needs a real model. Run `make set-key` yourself, then run this again.")
     if args.set == "freeze":
         return _freeze()
-    settings = get_settings()
-    if settings.llm_provider != "anthropic" or not settings.anthropic_api_key:
-        sys.exit(
-            "Needs a real model. Set LLM_PROVIDER=anthropic and ANTHROPIC_API_KEY in .env yourself,"
-            " then run: docker compose up -d --wait api"
-        )
     with get_sessionmaker()() as session:
         engine = RedFlagEngine.from_db(session)
     gateway = build_gateway(settings)
@@ -95,8 +92,9 @@ def _freeze() -> int:
             {
                 "prompts_hash": prompts.PROMPTS_HASH,
                 "second_pass_task": prompts.SECOND_PASS_TASK,
-                "small_model": s.llm_small_model,
-                "large_model": s.llm_large_model,
+                "provider": s.llm_provider,
+                "small_model": s.outside_models[0],
+                "large_model": s.outside_models[1],
                 "frozen_on": _today(),
             },
             indent=2,

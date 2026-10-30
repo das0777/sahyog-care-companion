@@ -1,4 +1,4 @@
-.PHONY: help up down reset migrate seed test lint fmt token eval eval-live redflag scrub llm-smoke chat desk purge-threads logs psql
+.PHONY: help up down reset migrate seed test lint fmt token eval eval-live redflag scrub llm-smoke chat desk purge-threads set-key logs psql
 
 EXEC = docker compose exec -T api
 
@@ -47,7 +47,7 @@ redflag:  ## Red-flag gate on one message: make redflag text="..." [age=62]
 scrub:  ## What leaves the boundary: make scrub text="..." [patient=P0001]
 	@$(EXEC) python -m sahyog.cli scrub --text "$(text)" $(if $(patient),--patient $(patient))
 
-llm-smoke:  ## Optional: one real model call (needs LLM_PROVIDER=anthropic and a key in .env)
+llm-smoke:  ## One real model call (needs a key: make set-key)
 	@$(EXEC) python -m sahyog.cli llm-smoke
 
 eval-live:  ## Real model calls (costs money, needs a key): make eval-live set=tune|match|speed|probe3|heldout
@@ -61,6 +61,10 @@ desk:  ## Print the front-desk queue
 
 purge-threads:  ## Delete W1 thread state past its 30-day expiry
 	@$(EXEC) python -m sahyog.cli purge-threads
+
+set-key:  ## Save your model API key to .env without showing it, then restart the API
+	@python3 scripts/set_key.py
+	@docker compose up -d --wait api
 
 logs:  ## Follow API logs
 	docker compose logs -f api
