@@ -8,10 +8,10 @@ The single record of how this project is executed: where we are, what was done, 
 
 | | |
 |---|---|
-| **Current stage** | S5 W3 Scribe: building. S4 is built, not yet reviewed |
-| **Last thing done** | S3 accepted, merged and tagged; S4 stage doc written (2026-10-30) |
-| **Next action** | Claude builds S5, S6 and S7 in one run, as the user asked, then issues one combined test pack |
-| **Blocked on** | Nothing. User should also revoke the OpenRouter key pasted in chat, if it is still active |
+| **Current stage** | All stages built. S4–S7 await the user's review |
+| **Last thing done** | S5, S6 and S7 built and measured; final report written (2026-10-30) |
+| **Next action** | User reviews `docs/FINAL-REPORT.md` and tries http://localhost:8000/, then replies "All accepted" or lists changes |
+| **Blocked on** | User: the review. User should also move the project out of iCloud and revoke the OpenRouter key pasted in chat, if it is still active |
 | **Last accepted tag** | `s3-accepted` (2026-10-30) |
 
 ### Open decisions
@@ -33,9 +33,9 @@ The single record of how this project is executed: where we are, what was done, 
 | S2 | W1 Find my doctor | **Accepted** 2026-10-30 | `stage/s2-w1` | `s2-accepted` | [S2-test-pack.md](docs/stages/S2-test-pack.md) |
 | S3 | W2 Ingest | **Accepted** 2026-10-30 | `stage/s3-w2-ingest` | `s3-accepted` | [S3-test-pack.md](docs/stages/S3-test-pack.md) |
 | S4 | W2 Ask | **Built, awaiting review** | `stage/s4-w2-ask` | | [S4-test-pack.md](docs/stages/S4-test-pack.md) |
-| S5 | W3 Scribe | Planned | `stage/s5-w3` | | |
-| S6 | Thin UI | Planned | `stage/s6-ui` | | |
-| S7 | Assurance | Planned | `stage/s7-assurance` | | |
+| S5 | W3 Scribe | **Built, awaiting review** | `stage/s5-w3` | | [S5-test-pack.md](docs/stages/S5-test-pack.md) |
+| S6 | Thin UI | **Built, awaiting review** | `stage/s6-ui` | | [S6.md](docs/stages/S6.md) |
+| S7 | Assurance | **Built, awaiting review** | `stage/s7-assurance` | | [FINAL-REPORT.md](docs/FINAL-REPORT.md) |
 
 Status values: Planned → Stage doc in review → Building → In user testing → Fixing → **Accepted**.
 
@@ -127,6 +127,8 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 | 2026-10-30 | A report that clearly names someone else is held, not indexed | The patient filter can't catch a mix-up at upload. Added beyond the spec, and approved with the stage doc |
 | 2026-10-30 | Scan-read chunks are marked, and S4 must say so to the patient | A misread number can't be detected: creatinine 1.72 was read as 172 |
 | 2026-10-30 | Build S4–S7 in one run, on stacked branches. No merge to `main` and no `sN-accepted` tag until the user reviews | User: "go ahead and finish everything". A tag would record a check that didn't happen |
+| 2026-10-30 | Traces in Postgres, not Langfuse; faithfulness by the published method through the gateway, not ragas | Langfuse is too heavy for an 8 GB Docker; ragas would bypass the scrubber. Both depart from the spec and are listed for the user to overrule |
+| 2026-10-30 | Review of a dictation opens with the transcript and a warning | Speech to text flipped "Known diabetic" to "NON diabetic", which grounding can't catch |
 
 ---
 
@@ -289,3 +291,15 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 - S4 results: every gate passes, 296 tests. Right answers 23/23, another patient's data 0 in 26, p95 4.8 s. See the test pack's cautions.
 - **Correction to S1 and S3:** the scrubber was also hiding lab test names from the model. S1's check didn't cover them. Fixed and gated as F22.
 - **Next:** S5.
+
+### 2026-10-30 · S5, S6 and S7 built
+- Built in one run on stacked branches, as the user asked. Nothing past S3 is merged or tagged as accepted.
+- **S5:** scribe graph, grounding in code, stock flags, signature, audio sweep. Measured once: invented molecules 0, medicine precision 93% and gaps 4/5 before a fix made after the run. **Finding:** speech to text turned "Known diabetic" into "NON diabetic" on a synthetic voice.
+- **S6:** one plain web app for patient, caregiver, doctor and desk, clicked through in a browser on the real model.
+- **S7:** circuit breaker, traces in Postgres, cost per consultation, MCP server, worker heartbeat, W2 and W3 extended cases, vendor swap to Gemini on dev sets, load test. Triage p95 4.28 s narrowly missed 4 s at the target rate; 2 of 143 requests went safely to the desk.
+- **Found:** the project is in iCloud Drive. This explains a failed git commit, the slowness and probably the `name 2` files, and `.env` holds the OpenRouter key there. Flagged to the user. Not moved, as it's their folder.
+- Cleared Docker's build cache when disk fell to 3.8 GB, as Claude had told the user it might.
+- Clean rebuild: 334 tests, lint clean, all offline gates pass, 17 checks fail with guardrails off.
+- **Not done, needs people:** independent emergency phrasings, clinical review, real scans and audio, 15 more human grades for the judge, privacy review, real load test, backups. See the final report.
+- Real model spend for the whole build: about $4–5, added up from run output, not from a bill.
+- **Next:** user's review.
