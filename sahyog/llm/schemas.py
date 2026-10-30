@@ -1,5 +1,7 @@
 """Output schemas for model calls. Each call has one; a reply that does not match is rejected."""
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 SPECIALTY_ID = r"^SP\d{2}$"
@@ -11,18 +13,43 @@ class Strict(BaseModel):
 
 
 class SpecialtyMatch(Strict):
-    """W1 match_specialty (used from S2): one specialty, an optional alternative, a confidence."""
+    """W1 match_specialty: one specialty, an optional alternative, a confidence."""
 
     specialty_id: str = Field(pattern=SPECIALTY_ID)
     alternative: str | None = Field(default=None, pattern=SPECIALTY_ID)
     confidence: float = Field(ge=0, le=1)
+    wants_diagnosis_or_dose: bool = False
+
+
+RedFlagCategory = Literal[
+    "cardiac",
+    "stroke",
+    "breathing",
+    "bleeding",
+    "self_harm",
+    "poisoning",
+    "anaphylaxis",
+    "seizure_or_unresponsive",
+    "severe_infection",
+    "head_injury",
+    "pregnancy",
+    "infant",
+    "major_trauma_or_burn",
+    "other",
+]
 
 
 class RedFlagSecondPass(Strict):
     """Model second pass on the red-flag gate. Adds flags only; see Decision.with_second_pass."""
 
-    add_flags: list[str] = Field(default_factory=list, max_length=5)
+    add_flags: list[RedFlagCategory] = Field(default_factory=list, max_length=5)
     reason: str = Field(max_length=300)
+
+
+class ClarifyQuestion(Strict):
+    """W1 clarify: one short question for the patient."""
+
+    question: str = Field(min_length=3, max_length=200)
 
 
 class Ack(Strict):

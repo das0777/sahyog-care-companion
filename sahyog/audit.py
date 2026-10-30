@@ -28,10 +28,10 @@ def record(
     outcome: Outcome,
 ) -> None:
     with get_sessionmaker()() as session, session.begin():
-        _add(session, ctx, table=table, record_id=record_id, action=action, outcome=outcome)
+        add(session, ctx, table=table, record_id=record_id, action=action, outcome=outcome)
 
 
-def _add(
+def add(
     session: Session, ctx: AuthContext, *, table: str, record_id: str, action: str, outcome: Outcome
 ) -> None:
     session.add(

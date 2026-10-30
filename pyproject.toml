@@ -23,6 +23,8 @@ dependencies = [
     "httpx>=0.27",
     "pyyaml>=6.0",
     "en-core-web-sm",
+    "langgraph>=1.2,<1.3",
+    "langgraph-checkpoint-postgres>=3.2,<3.3",
 ]
 
 [dependency-groups]
@@ -58,11 +60,14 @@ extend-immutable-calls = ["fastapi.Depends", "fastapi.Header", "fastapi.Query", 
 "migrations/*" = ["E501"]
 "tests/*" = ["S105", "S106"]
 "sahyog/llm/adapters/*" = ["TID251"]
+"sahyog/graphs/w1_prompts.py" = ["E501", "S105"]  # prose for the model; "PASS" isn't a password
+"sahyog/graphs/w1_messages.py" = ["E501"]  # patient messages in three languages
 "tests/test_gateway.py" = ["TID251"]  # adapter tests stub the SDK's HTTP client
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+# macOS sync on the Desktop leaves "name 2.py" copies; they must never count as tests
+addopts = "-q --ignore-glob=*\\ 2.py"
 filterwarnings = ["ignore:Using `httpx` with `starlette.testclient`"]
 
 [tool.uv.sources]

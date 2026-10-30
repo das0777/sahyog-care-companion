@@ -175,16 +175,17 @@ class ModelGateway:
 
 
 def build_gateway(settings=None) -> ModelGateway:
-    """Gateway from settings. LLM_PROVIDER=fake (the S1 default) needs no key and no network."""
+    """Gateway from settings. LLM_PROVIDER=fake (the default) needs no key and no network."""
     from sahyog.config import get_settings
 
     s = settings or get_settings()
     prices = Prices(Path(s.prices_file))
     if s.llm_provider == "fake":
         from sahyog.llm.adapters.fake import FakeModel
+        from sahyog.llm.adapters.fake_w1 import triage_script
 
         adapters: dict[str, Adapter] = {
-            "fake": FakeModel(),
+            "fake": FakeModel(triage_script),
             "fake-region": FakeModel(name="fake-region", in_boundary=True),
         }
         routes: dict[TaskClass, Route] = {

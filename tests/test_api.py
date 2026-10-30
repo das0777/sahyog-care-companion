@@ -87,7 +87,7 @@ def test_failed_audit_write_fails_the_read(client, monkeypatch):
     def broken(*args, **kwargs):
         raise RuntimeError("audit store down")
 
-    monkeypatch.setattr(audit, "_add", broken)
+    monkeypatch.setattr(audit, "add", broken)
     resp = client.get("/patients/P0005", headers=bearer(Role.DOCTOR, "D0001"))
     assert resp.status_code == 500
     assert "P0005" not in resp.text

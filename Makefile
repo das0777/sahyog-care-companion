@@ -1,4 +1,4 @@
-.PHONY: help up down reset migrate seed test lint fmt token eval redflag scrub llm-smoke logs psql
+.PHONY: help up down reset migrate seed test lint fmt token eval eval-live redflag scrub llm-smoke chat desk purge-threads logs psql
 
 EXEC = docker compose exec -T api
 
@@ -38,7 +38,7 @@ fmt:  ## Apply formatting
 token:  ## Issue a dev token: make token role=patient id=P0001
 	@$(EXEC) python -m sahyog.cli token --role $(role) --id $(id)
 
-eval:  ## S1 safety evals on the fake model; GUARDRAILS=off must fail
+eval:  ## Offline safety and W1 path evals on the fake model; GUARDRAILS=off must fail
 	$(EXEC) python -m sahyog.evals.run --guardrails $(or $(GUARDRAILS),on)
 
 redflag:  ## Red-flag gate on one message: make redflag text="..." [age=62]
@@ -49,6 +49,18 @@ scrub:  ## What leaves the boundary: make scrub text="..." [patient=P0001]
 
 llm-smoke:  ## Optional: one real model call (needs LLM_PROVIDER=anthropic and a key in .env)
 	@$(EXEC) python -m sahyog.cli llm-smoke
+
+eval-live:  ## Real model calls (costs money, needs a key): make eval-live set=tune|match|speed|probe3|heldout
+	$(EXEC) python -m sahyog.evals.w1_live --set $(set)
+
+chat:  ## A whole W1 conversation in the terminal: make chat patient=P0001
+	@docker compose exec api python -m sahyog.cli chat --patient $(patient)
+
+desk:  ## Print the front-desk queue
+	@$(EXEC) python -m sahyog.cli desk
+
+purge-threads:  ## Delete W1 thread state past its 30-day expiry
+	@$(EXEC) python -m sahyog.cli purge-threads
 
 logs:  ## Follow API logs
 	docker compose logs -f api
