@@ -51,13 +51,35 @@ NOT_NAMES = frozenset(
     """.split()
 )
 
+# Words on reports that the capitalised-pair rule and NER take for names ("Total Cholesterol")
+REPORT_WORDS = frozenset(
+    """
+    test tests result results unit units reference range value normal laboratory lab summary
+    discharge hospital course investigation investigations biochemistry haematology hematology
+    pathology radiology microbiology serology diagnosis history medicine medicines medication
+    prescription advice treatment findings impression sample specimen collected received reported
+    date page name age sex gender male female consultant referred referrer ward bed admission
+    admitted blood sugar fasting post prandial random glucose total cholesterol triglycerides
+    haemoglobin hemoglobin platelet platelets count serum creatinine urea uric acid calcium sodium
+    potassium chloride bilirubin albumin protein globulin liver kidney renal function thyroid lipid
+    profile complete neutrophils lymphocytes monocytes eosinophils basophils hematocrit iron
+    ferritin urine stool culture sensitivity ultrasound scan chest abdomen pelvis diagnostics
+    notes continued synthetic department follow up chief complaint complaints past medical on
+    """.split()
+)
+# A table row: a value then a unit. Its words are a test's name, not a person's
+LAB_ROW = re.compile(
+    r"\d[\d.,]*\s*(?:%|(?:mg|g|ng|pg|mcg|ug|µg|iu|miu|u|mmol|meq|lakh|thou|cells|fl|mm|sec|ml)\b)",
+    re.IGNORECASE,
+)
+
 # Clinical vocabulary that must survive (NER sometimes tags drug names as people)
 CLINICAL_ALLOW = frozenset(
     {m[1].split()[0] for m in MEDICINES}
     | {"HbA1c", "TSH", "LDL", "HDL", "ECG", "MRI", "CT", "BP", "CBC", "ESR", "CRP", "SGPT", "SGOT"}
     | {"ABHA", "Aadhaar", "OPD", "IPD", "Plan", "Rx"}
 )
-CLINICAL_ALLOW_LOWER = frozenset(w.lower() for w in CLINICAL_ALLOW)
+CLINICAL_ALLOW_LOWER = frozenset(w.lower() for w in CLINICAL_ALLOW) | REPORT_WORDS
 # Never part of a name: dose units and frequencies (NER on "50 mcg le" tags "mcg le")
 UNITS = frozenset("mg mcg ml g dl iu mmol mmhg kg cm tab tablet tabs cap od bd tds daily".split())
 
@@ -250,7 +272,11 @@ def _structural(text: str) -> list[Span]:
                 i = j
                 continue
         # Two or more capitalised words mid-sentence: "and her husband Phurba Lepcha both..."
-        if capitalised(m) and not _sentence_start(text, m.start()):
+        if (
+            capitalised(m)
+            and not _sentence_start(text, m.start())
+            and not _on_lab_row(text, m.start())
+        ):
             run = [m]
             j = i + 1
             while (
@@ -267,6 +293,12 @@ def _structural(text: str) -> list[Span]:
                 continue
         i += 1
     return spans
+
+
+def _on_lab_row(text: str, pos: int) -> bool:
+    start = text.rfind("\n", 0, pos) + 1
+    end = text.find("\n", pos)
+    return bool(LAB_ROW.search(text[start : end if end != -1 else len(text)]))
 
 
 def _is_name_word(w: str, *, lower_ok: bool = False) -> bool:
@@ -304,7 +336,11 @@ def _ner(text: str) -> list[Span]:
     for r in results:
         if r.entity_type == "PERSON":
             trimmed = _trim_name(text, r.start, r.end)
-            if trimmed and _ner_name_is_plausible(text, trimmed):
+            if (
+                trimmed
+                and _ner_name_is_plausible(text, trimmed)
+                and not _on_lab_row(text, trimmed.start)
+            ):
                 spans.append(trimmed)
         else:
             spans.append(Span(r.start, r.end, "EMAIL"))

@@ -16,7 +16,7 @@ LATE_AFTER = timedelta(minutes=30)  # E2.5
 PRIORITY = {"er": 0, "safety_unchecked": 0}
 DEFAULT_PRIORITY = 1
 
-SMS_TEMPLATES = {"booking_confirmed", "booking_cancelled", "booking_moved"}
+SMS_TEMPLATES = {"booking_confirmed", "booking_cancelled", "booking_moved", "note_signed"}
 
 
 def open_ticket(

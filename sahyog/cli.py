@@ -1,6 +1,7 @@
 """Developer commands: `python -m sahyog.cli seed` and `python -m sahyog.cli token`."""
 
 import argparse
+import json
 import sys
 
 from sahyog.auth import Role, issue_token
@@ -170,6 +171,107 @@ def _search(args: argparse.Namespace) -> None:
         print("   " + h.text[:300].replace("\n", " | "))
 
 
+def _ask(args: argparse.Namespace) -> None:
+    import httpx
+
+    role, actor = (Role.CAREGIVER, args.as_id) if args.as_id else (Role.PATIENT, args.patient)
+    with httpx.stream(
+        "POST",
+        "http://localhost:8000/w2/ask",
+        json={"question": args.q, "patient_id": args.patient},
+        headers={"Authorization": f"Bearer {issue_token(role, actor)}"},
+        timeout=120,
+    ) as r:
+        if r.status_code == 403:
+            print("403: not permitted to read these records. No data returned.")
+            return
+        for line in r.iter_lines():
+            if not line.startswith("data: ") or line == "data: {}":
+                continue
+            body = json.loads(line.removeprefix("data: "))
+            print(f"[{body['status']}]\n{body['answer']}")
+            for c in body["citations"]:
+                print(f"  source: document {c['doc_id']}, page {c['page']} ({c['source']})")
+            if body.get("ticket_id"):
+                print(f"  desk ticket: {body['ticket_id']}")
+
+
+def _dictate(args: argparse.Namespace) -> None:
+    """Books an appointment if needed, opens an encounter, sends the dictation, prints the draft."""
+    import time
+    import uuid
+    from pathlib import Path
+
+    import httpx
+    from sqlalchemy import select
+
+    from sahyog.models import Appointment, Slot
+    from sahyog.scheduling.service import reserve_slot
+
+    doctor = "D0001"
+    with get_sessionmaker().begin() as session:
+        slot = session.execute(
+            select(Slot).where(Slot.doctor_id == doctor).order_by(Slot.starts_at).limit(1)
+        ).scalar()
+        booked = session.execute(
+            select(Appointment).where(Appointment.slot_id == slot.slot_id).limit(1)
+        ).scalar()
+        appt_id = (
+            booked.appt_id
+            if booked
+            else reserve_slot(
+                session,
+                slot_id=slot.slot_id,
+                patient_id="P0100",
+                idem_key=f"demo-{uuid.uuid4().hex}",
+                booked_by="demo",
+            ).appt_id
+        )
+    api = httpx.Client(
+        base_url="http://localhost:8000",
+        headers={"Authorization": f"Bearer {issue_token(Role.DOCTOR, doctor)}"},
+        timeout=120,
+    )
+    encounter = api.post("/w3/encounters", json={"appt_id": str(appt_id)}).json()["encounter_id"]
+    if args.file:
+        path = Path(args.file)
+        with path.open("rb") as f:
+            reply = api.post(f"/w3/encounters/{encounter}/audio", files={"file": (path.name, f)})
+    else:
+        reply = api.post(f"/w3/encounters/{encounter}/transcript", json={"transcript": args.text})
+    thread = reply.raise_for_status().json()["thread_id"]
+    for _ in range(240):
+        draft = api.get(f"/w3/{thread}/draft").json()
+        if draft["status"] not in ("queued", "running"):
+            break
+        time.sleep(0.5)
+    print(json.dumps(draft, indent=1, ensure_ascii=False))
+
+
+def _ops(_: argparse.Namespace) -> None:
+    from sahyog.observability import cost_per_consultation, tiles
+
+    print(json.dumps({"tiles": tiles(), "cost": cost_per_consultation()}, indent=1))
+
+
+def _stock_csv(args: argparse.Namespace) -> None:
+    import csv
+    from pathlib import Path
+
+    from sqlalchemy import select
+
+    from sahyog.models import MedicineStock
+
+    fields = ["medicine_id", "clinic_id", "name", "composition", "qty", "as_of"]
+    with get_sessionmaker()() as session, Path(get_settings().stock_csv).open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fields)
+        writer.writeheader()
+        rows = session.execute(select(MedicineStock)).scalars()
+        for row in rows:
+            writer.writerow({k: getattr(row, k) for k in fields})
+    print(f"wrote {get_settings().stock_csv}")
+
+
 def _purge(args: argparse.Namespace) -> None:
     from sahyog.graphs.purge import purge
 
@@ -206,6 +308,23 @@ def main(argv: list[str] | None = None) -> None:
     p_search.add_argument("--q", required=True)
     p_search.add_argument("--k", type=int, default=8)
     p_search.set_defaults(fn=_search)
+
+    p_ask = sub.add_parser("ask", help="Ask about a patient's reports, over HTTP")
+    p_ask.add_argument("--patient", required=True)
+    p_ask.add_argument("--q", required=True)
+    p_ask.add_argument("--as", dest="as_id", default=None, help="Caregiver id, e.g. CG0011")
+    p_ask.set_defaults(fn=_ask)
+
+    p_dictate = sub.add_parser("dictate", help="Run one dictation to its draft, over HTTP")
+    p_dictate.add_argument("--text", default=None)
+    p_dictate.add_argument("--file", default=None)
+    p_dictate.set_defaults(fn=_dictate)
+
+    p_ops = sub.add_parser("ops", help="Operations tiles and cost per consultation")
+    p_ops.set_defaults(fn=_ops)
+
+    p_stock = sub.add_parser("stock-csv", help="Export today's stock as the CSV the scribe reads")
+    p_stock.set_defaults(fn=_stock_csv)
 
     p_purge = sub.add_parser("purge-threads", help="Delete W1 thread state past its expiry")
     p_purge.add_argument("--days", type=int, default=30)

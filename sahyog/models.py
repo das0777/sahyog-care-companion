@@ -230,6 +230,7 @@ class Encounter(Base):
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     audio_uri: Mapped[str | None] = mapped_column(Text)  # object expires within 24 h
     transcript_uri: Mapped[str | None] = mapped_column(Text)
+    audio_deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class ClinicalNote(Base):
@@ -245,6 +246,8 @@ class ClinicalNote(Base):
     supersedes: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("clinical_note.note_id"))
     signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     hash: Mapped[str | None] = mapped_column(String(64))
+    edit_history: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
+    review_seconds: Mapped[float | None]
     created_at: Mapped[datetime] = _created_at()
 
     __table_args__ = (
@@ -320,7 +323,7 @@ class DeskTicket(Base):
         CheckConstraint(
             "kind IN ('er', 'safety_unchecked', 'low_confidence', 'advice_request', "
             "'no_availability', 'model_failure', 'ai_booking', 'late_block', 'doc_held', "
-            "'doc_quarantine')",
+            "'doc_quarantine', 'answer_blocked')",
             name="desk_ticket_kind_valid",
         ),
         CheckConstraint("status IN ('open', 'claimed', 'closed')", name="desk_ticket_status_valid"),
@@ -429,3 +432,55 @@ class EmbeddingCache(Base):
     content_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
     model: Mapped[str] = mapped_column(String(80), primary_key=True)
     embedding: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIM))
+
+
+class ScribeJob(Base):
+    """One dictation's trip through the worker, up to the doctor's review."""
+
+    __tablename__ = "scribe_job"
+
+    job_id: Mapped[uuid.UUID] = _uuid_pk()
+    encounter_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("encounter.encounter_id"))
+    thread_id: Mapped[str] = mapped_column(String(40), unique=True)
+    status: Mapped[str] = mapped_column(String(10), server_default="queued")
+    attempts: Mapped[int] = mapped_column(server_default="0")
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    transcript: Mapped[str | None] = mapped_column(Text)
+    transcribe_seconds: Mapped[float | None]
+    reason: Mapped[str | None] = mapped_column(Text)
+    trace_id: Mapped[str] = mapped_column(String(40))
+    created_at: Mapped[datetime] = _created_at()
+
+    __table_args__ = (Index("ix_scribe_job_queue", "status", "created_at"),)
+
+
+class StockReservation(Base):
+    """A signed note's medicine held against the clinic's stock."""
+
+    __tablename__ = "stock_reservation"
+
+    reservation_id: Mapped[uuid.UUID] = _uuid_pk()
+    note_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("clinical_note.note_id"))
+    medicine_id: Mapped[str] = mapped_column(String(16))
+    clinic_id: Mapped[str] = mapped_column(String(8))
+    created_at: Mapped[datetime] = _created_at()
+
+
+class TraceSpan(Base):
+    """One model call: what ran, how long, what it cost. Holds no prompt or reply text."""
+
+    __tablename__ = "trace_span"
+
+    span_id: Mapped[uuid.UUID] = _uuid_pk()
+    trace_id: Mapped[str] = mapped_column(String(40), index=True)
+    workflow: Mapped[str] = mapped_column(String(16))
+    name: Mapped[str] = mapped_column(String(40))
+    provider: Mapped[str | None] = mapped_column(String(40))
+    model: Mapped[str | None] = mapped_column(String(80))
+    outcome: Mapped[str] = mapped_column(String(20))
+    input_tokens: Mapped[int] = mapped_column(server_default="0")
+    output_tokens: Mapped[int] = mapped_column(server_default="0")
+    cost_usd: Mapped[float] = mapped_column(server_default="0")
+    latency_ms: Mapped[float] = mapped_column(server_default="0")
+    scrubbed: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
+    at: Mapped[datetime] = _created_at()

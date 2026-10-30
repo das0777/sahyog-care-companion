@@ -21,6 +21,9 @@ SPEC_TABLES = {
     "ingest_job",
     "quarantined_chunk",
     "embedding_cache",
+    "scribe_job",
+    "stock_reservation",
+    "trace_span",
 }
 
 

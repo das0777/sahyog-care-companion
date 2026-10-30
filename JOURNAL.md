@@ -8,11 +8,11 @@ The single record of how this project is executed: where we are, what was done, 
 
 | | |
 |---|---|
-| **Current stage** | S3 W2 Ingest: in user testing |
-| **Last thing done** | S3 built and measured: all gates pass; about 1 scan-read number in 200 is wrong (2026-10-30) |
-| **Next action** | User runs `docs/stages/S3-test-pack.md` and replies "S3 accepted" or lists failures |
-| **Blocked on** | User: the S3 test run and verdict. User should also revoke the OpenRouter key pasted in chat, if it is still active |
-| **Last accepted tag** | `s2-accepted` (2026-10-30) |
+| **Current stage** | All stages accepted. Not ready for real patients: see the open items in `docs/FINAL-REPORT.md` |
+| **Last thing done** | S4–S7 accepted, merged and tagged (2026-10-30) |
+| **Next action** | None planned. First priority if work continues: independent emergency phrasings, then clinical review |
+| **Blocked on** | Nothing. User should also move the project out of iCloud and revoke the OpenRouter key pasted in chat, if it is still active |
+| **Last accepted tag** | `s7-accepted` (2026-10-30) |
 
 ### Open decisions
 
@@ -31,11 +31,11 @@ The single record of how this project is executed: where we are, what was done, 
 | S0 | Foundation | **Accepted** 2026-10-30 | `stage/s0-foundation` | `s0-accepted` | [S0-test-pack.md](docs/stages/S0-test-pack.md) |
 | S1 | Safety core + eval harness | **Accepted** 2026-10-30 | `stage/s1-safety` | `s1-accepted` | [S1-test-pack.md](docs/stages/S1-test-pack.md) |
 | S2 | W1 Find my doctor | **Accepted** 2026-10-30 | `stage/s2-w1` | `s2-accepted` | [S2-test-pack.md](docs/stages/S2-test-pack.md) |
-| S3 | W2 Ingest | **In user testing** | `stage/s3-w2-ingest` | | [S3-test-pack.md](docs/stages/S3-test-pack.md) |
-| S4 | W2 Ask | Planned | `stage/s4-w2-ask` | | |
-| S5 | W3 Scribe | Planned | `stage/s5-w3` | | |
-| S6 | Thin UI | Planned | `stage/s6-ui` | | |
-| S7 | Assurance | Planned | `stage/s7-assurance` | | |
+| S3 | W2 Ingest | **Accepted** 2026-10-30 | `stage/s3-w2-ingest` | `s3-accepted` | [S3-test-pack.md](docs/stages/S3-test-pack.md) |
+| S4 | W2 Ask | **Accepted** 2026-10-30 | `stage/s4-w2-ask` | `s4-accepted` | [S4-test-pack.md](docs/stages/S4-test-pack.md) |
+| S5 | W3 Scribe | **Accepted** 2026-10-30 | `stage/s5-w3` | `s5-accepted` | [S5-test-pack.md](docs/stages/S5-test-pack.md) |
+| S6 | Thin UI | **Accepted** 2026-10-30 | `stage/s6-ui` | `s6-accepted` | [S6.md](docs/stages/S6.md) |
+| S7 | Assurance | **Accepted** 2026-10-30 | `stage/s7-assurance` | `s7-accepted` | [FINAL-REPORT.md](docs/FINAL-REPORT.md) |
 
 Status values: Planned → Stage doc in review → Building → In user testing → Fixing → **Accepted**.
 
@@ -126,6 +126,9 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 | 2026-10-30 | OCR and embeddings run locally; Postgres is the job queue; the worker is a separate service | Report text stays inside the boundary, and upload and job commit together. See ADR 0003 |
 | 2026-10-30 | A report that clearly names someone else is held, not indexed | The patient filter can't catch a mix-up at upload. Added beyond the spec, and approved with the stage doc |
 | 2026-10-30 | Scan-read chunks are marked, and S4 must say so to the patient | A misread number can't be detected: creatinine 1.72 was read as 172 |
+| 2026-10-30 | Build S4–S7 in one run, on stacked branches. No merge to `main` and no `sN-accepted` tag until the user reviews | User: "go ahead and finish everything". A tag would record a check that didn't happen |
+| 2026-10-30 | Traces in Postgres, not Langfuse; faithfulness by the published method through the gateway, not ragas | Langfuse is too heavy for an 8 GB Docker; ragas would bypass the scrubber. Both depart from the spec and are listed for the user to overrule |
+| 2026-10-30 | Review of a dictation opens with the transcript and a warning | Speech to text flipped "Known diabetic" to "NON diabetic", which grounding can't catch |
 
 ---
 
@@ -275,3 +278,34 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 - Results: every gate passes, `GUARDRAILS=off` fails (D10 396 leaks, D12 0/15), 255 tests, lint clean. No outside model called.
 - Synthetic scans are easy ones: real scans are untested, and that needs anonymised samples from Sahyog.
 - **Next:** user runs the S3 test pack and gives a verdict.
+
+### 2026-10-30 · S3 accepted, S4 stage doc
+- User replied "S3 accepted" and listed no failures. No result from the test pack's own-PDF step was reported, so S3 has no independent check on real or user-made files.
+- Merged `stage/s3-w2-ingest` into `main` (merge commit, history kept) and tagged `s3-accepted`.
+- Wrote `docs/stages/S4.md` on branch `stage/s4-w2-ask`: the ask graph, consent check on every read, citations, and a safety check before anything is shown.
+- Proposed beyond the spec: W1's red-flag gate runs first on every question, every number in an answer must appear in its cited chunk, a scan warning added by code, and a test that fails if a prompt shares wording with an eval case.
+- **Next:** user reviews and approves the S4 stage doc; then Claude builds S4.
+
+### 2026-10-30 · S4 built; user asks to finish everything
+- User approved the S4 stage doc, then wrote "go ahead and finish everything" while S4's final check ran. Claude told the user what this changes: no acceptance tags, one combined review, and what can't be finished without other people.
+- S4 results: every gate passes, 296 tests. Right answers 23/23, another patient's data 0 in 26, p95 4.8 s. See the test pack's cautions.
+- **Correction to S1 and S3:** the scrubber was also hiding lab test names from the model. S1's check didn't cover them. Fixed and gated as F22.
+- **Next:** S5.
+
+### 2026-10-30 · S5, S6 and S7 built
+- Built in one run on stacked branches, as the user asked. Nothing past S3 is merged or tagged as accepted.
+- **S5:** scribe graph, grounding in code, stock flags, signature, audio sweep. Measured once: invented molecules 0, medicine precision 93% and gaps 4/5 before a fix made after the run. **Finding:** speech to text turned "Known diabetic" into "NON diabetic" on a synthetic voice.
+- **S6:** one plain web app for patient, caregiver, doctor and desk, clicked through in a browser on the real model.
+- **S7:** circuit breaker, traces in Postgres, cost per consultation, MCP server, worker heartbeat, W2 and W3 extended cases, vendor swap to Gemini on dev sets, load test. Triage p95 4.28 s narrowly missed 4 s at the target rate; 2 of 143 requests went safely to the desk.
+- **Found:** the project is in iCloud Drive. This explains a failed git commit, the slowness and probably the `name 2` files, and `.env` holds the OpenRouter key there. Flagged to the user. Not moved, as it's their folder.
+- Cleared Docker's build cache when disk fell to 3.8 GB, as Claude had told the user it might.
+- Clean rebuild: 334 tests, lint clean, all offline gates pass, 17 checks fail with guardrails off.
+- **Not done, needs people:** independent emergency phrasings, clinical review, real scans and audio, 15 more human grades for the judge, privacy review, real load test, backups. See the final report.
+- Real model spend for the whole build: about $4–5, added up from run output, not from a bill.
+- **Next:** user's review.
+
+### 2026-10-30 · S4–S7 accepted
+- User replied "All accepted". No results from the user's own testing were reported, so S4–S7 rest on Claude's checks alone, as S2 and S3 did for their independent steps.
+- Merged `stage/s7-assurance`, which stacks S4–S7, into `main` (merge commit, history kept). Tags `s4-accepted` to `s7-accepted` mark each stage's last commit. The S7 tag is on the merge.
+- Accepted as matching the brief, **not as ready for patients**. Still open: independent emergency phrasings, clinical review, real scans and audio, human grading for the judge, privacy review of OpenRouter, a real load test, backups.
+- Also open for the user: revoke the OpenRouter key pasted in chat if still in use, move the project out of iCloud, decide about the `name 2` files.

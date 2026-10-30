@@ -63,3 +63,11 @@ def get_embedder() -> Embedder:
 
 def content_hash(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
+
+
+if __name__ == "__main__":
+    # The model-init service: fetch the models if they aren't there yet
+    get_embedder().query("ready")
+    from faster_whisper.utils import download_model
+
+    download_model(get_settings().whisper_model, cache_dir=get_settings().model_cache_dir)

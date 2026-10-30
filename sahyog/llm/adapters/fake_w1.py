@@ -52,4 +52,51 @@ def triage_script(request: ModelRequest) -> str:
                 "wants_diagnosis_or_dose": False,
             }
         )
+    if request.system.startswith("W3 draft"):
+        return _w3_draft(request.prompt)
+    if request.system.startswith("W3 medicines"):
+        return _w3_meds(request.prompt)
+    if request.system.startswith("W2 grade"):
+        return json.dumps({"relevant": True})
+    if request.system.startswith("W2 answer"):
+        return _w2_answer(request.prompt)
     return "{}"
+
+
+def _transcript(prompt: str) -> str:
+    return prompt.partition("<transcript>")[2].partition("</transcript>")[0].strip()
+
+
+def _w3_draft(prompt: str) -> str:
+    """Every sentence goes in the plan, quoted exactly. Enough to prove the graph's paths."""
+    sentences = [s.strip() for s in re.split(r"(?<=[.?!])\s+", _transcript(prompt)) if s.strip()]
+    lines = [{"text": s, "quote": s} for s in sentences]
+    return json.dumps({"subjective": [], "objective": [], "assessment": [], "plan": lines})
+
+
+def _w3_meds(prompt: str) -> str:
+    meds = []
+    for name, dose in re.findall(
+        r"\b(metformin|atorvastatin|paracetamol|amlodipine)\s*(\d+\s*mg)?",
+        _transcript(prompt),
+        re.I,
+    ):
+        meds.append({"name": name, "dose": dose, "span": f"{name} {dose}".strip()})
+    for name in ("statin",):
+        if re.search(rf"\blow dose {name}\b", _transcript(prompt), re.I):
+            meds.append({"name": name, "dose": "", "span": f"low dose {name}"})
+    return json.dumps({"medicines": meds})
+
+
+def _w2_answer(prompt: str) -> str:
+    """Reads back the first excerpt line that shares a word with the question."""
+    excerpts, _, question = prompt.partition("</excerpts>")
+    words = set(re.findall(r"[a-z0-9]{3,}", question.lower())) - {"what", "was", "the", "question"}
+    for number, body in re.findall(r"\[(\d+)\][^\n]*\n(.*?)(?=\n\n\[|\Z)", excerpts, re.S):
+        for line in body.splitlines():
+            if words & set(re.findall(r"[a-z0-9]{3,}", line.lower())):
+                sentence = {"text": line.strip(), "excerpts": [int(number)]}
+                return json.dumps(
+                    {"found": True, "wants_diagnosis_or_dose": False, "sentences": [sentence]}
+                )
+    return json.dumps({"found": False, "wants_diagnosis_or_dose": False, "sentences": []})

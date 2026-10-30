@@ -52,6 +52,62 @@ class ClarifyQuestion(Strict):
     question: str = Field(min_length=3, max_length=200)
 
 
+class SoapLine(Strict):
+    text: str = Field(min_length=1, max_length=600)
+    quote: str = Field(min_length=1, max_length=600)
+
+
+class SoapDraft(Strict):
+    """W3 draft_soap. Every line carries the words it came from; code checks them."""
+
+    subjective: list[SoapLine] = Field(default_factory=list, max_length=20)
+    objective: list[SoapLine] = Field(default_factory=list, max_length=20)
+    assessment: list[SoapLine] = Field(default_factory=list, max_length=20)
+    plan: list[SoapLine] = Field(default_factory=list, max_length=20)
+
+
+class SpokenMedicine(Strict):
+    name: str = Field(min_length=1, max_length=120)
+    dose: str = Field(default="", max_length=80)
+    span: str = Field(min_length=1, max_length=400)
+
+
+class MedicineList(Strict):
+    """W3 extract_meds. A medicine without a span in the doctor's words is dropped."""
+
+    medicines: list[SpokenMedicine] = Field(default_factory=list, max_length=20)
+
+
+class ContextGrade(Strict):
+    """W2 grade_context: do these excerpts hold the answer?"""
+
+    relevant: bool
+
+
+class AnswerSentence(Strict):
+    text: str = Field(min_length=1, max_length=500)
+    excerpts: list[int] = Field(default_factory=list, max_length=8)
+
+
+class AnswerDraft(Strict):
+    """W2 answer. Cites excerpt numbers, which code maps to documents, so it can't invent an id."""
+
+    found: bool
+    wants_diagnosis_or_dose: bool = False
+    sentences: list[AnswerSentence] = Field(default_factory=list, max_length=12)
+
+
+class JudgedClaim(Strict):
+    claim: str = Field(max_length=500)
+    supported: bool
+
+
+class FaithfulnessJudgement(Strict):
+    """Eval only: a model's judgement, uncalibrated until S7."""
+
+    claims: list[JudgedClaim] = Field(default_factory=list, max_length=40)
+
+
 class Ack(Strict):
     """Minimal reply used by the egress replay."""
 
