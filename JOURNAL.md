@@ -8,11 +8,11 @@ The single record of how this project is executed: where we are, what was done, 
 
 | | |
 |---|---|
-| **Current stage** | S1 Safety core + eval harness: in user testing |
-| **Last thing done** | S1 built: all gates pass, 161 tests; blind probes exposed low recall on unseen phrasing (2026-10-30) |
-| **Next action** | User runs `docs/stages/S1-test-pack.md` (step 3 is the real red-flag test) and replies "S1 accepted" or lists failures |
-| **Blocked on** | User: the S1 test run and verdict |
-| **Last accepted tag** | `s0-accepted` (2026-10-30) |
+| **Current stage** | S2 W1 Find my doctor: stage doc in review |
+| **Last thing done** | S1 accepted, merged and tagged; S2 stage doc written (2026-10-30) |
+| **Next action** | User reviews and approves `docs/stages/S2.md`; then Claude builds S2 |
+| **Blocked on** | User: S2 stage doc approval. S2 also needs the user's API key in `.env` and a held-out set not written by Claude |
+| **Last accepted tag** | `s1-accepted` (2026-10-30) |
 
 ### Open decisions
 
@@ -29,8 +29,8 @@ The single record of how this project is executed: where we are, what was done, 
 | Stage | Name | Status | Branch | Tag | Test pack |
 |---|---|---|---|---|---|
 | S0 | Foundation | **Accepted** 2026-10-30 | `stage/s0-foundation` | `s0-accepted` | [S0-test-pack.md](docs/stages/S0-test-pack.md) |
-| S1 | Safety core + eval harness | **In user testing** | `stage/s1-safety` | | [S1-test-pack.md](docs/stages/S1-test-pack.md) |
-| S2 | W1 Find my doctor | Planned | `stage/s2-w1` | | |
+| S1 | Safety core + eval harness | **Accepted** 2026-10-30 | `stage/s1-safety` | `s1-accepted` | [S1-test-pack.md](docs/stages/S1-test-pack.md) |
+| S2 | W1 Find my doctor | Stage doc in review | `stage/s2-w1` | | |
 | S3 | W2 Ingest | Planned | `stage/s3-w2-ingest` | | |
 | S4 | W2 Ask | Planned | `stage/s4-w2-ask` | | |
 | S5 | W3 Scribe | Planned | `stage/s5-w3` | | |
@@ -116,6 +116,7 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 | 2026-10-30 | Scrubber layers: known identifiers, Indian patterns, name gazetteer, structural name rules, then NER | spaCy's small English model misses most Indian names and mislabels Hinglish; no single layer was enough |
 | 2026-10-30 | Gateway: reject never repair; retry once; fallback; in-region calls never leave the boundary | Spec rules, enforced in code and tests rather than prompts |
 | 2026-10-30 | Anthropic SDK 2.x (API version 2026-10-21); server-side refusal fallback on Sonnet 5.5; SDK retries off | Current SDK; the gateway owns retries so attempts are visible and counted |
+| 2026-10-30 | Proposed for S2: a failed second pass goes to the desk, and held-out recall is reported once, never restated after fixes (pending approval of the stage doc) | The gate must never pass by default; S1 showed that post-fix numbers say little about unseen phrasing |
 
 ---
 
@@ -199,3 +200,13 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 - Fixed during the build: the "karna/marna" typo misfire; Presidio flagging test dates; spaCy tagging Hinglish and doses as names; North-East and South Indian names leaking; a name rule eating "HbA1c"; the replay planting no out-of-list names; a stale lint config in the image.
 - Results: every gate passes; `GUARDRAILS=off` fails (B1 0/13, B5 875 leaks); 161 tests; lint clean.
 - **Next:** user runs the S1 test pack, especially step 3 (their own red-flag phrasings), and gives a verdict.
+
+### 2026-10-30 · S1 accepted, S2 stage doc
+- User replied "S1 accepted" and listed no failures. No results from the test pack's step 3 (the user's own red-flag phrasings) were reported, so S1 has no recall number from another author.
+- Merged `stage/s1-safety` into `main` (merge commit, history kept) and tagged `s1-accepted`.
+- Wrote `docs/stages/S2.md` on branch `stage/s2-w1`: the W1 graph, model second pass, specialty match with one clarifying question, block booking, SMS stub, desk queue and override, and a measuring order that freezes prompts before held-out recall is run.
+- **Found while planning:**
+  - S0's token rule stops a cancelled place from ever being rebooked; the fix is planned in migration `0002`.
+  - The golden set has only 17 non-emergency cases (2 Hinglish, 1 Hindi), too few for the accuracy gates; about 50 cases are added before the graph.
+- S2 is the first stage that needs a real model: the user adds an API key to `.env` themself, and supplies a held-out set not written by Claude.
+- **Next:** user reviews and approves the S2 stage doc; then Claude builds S2.
