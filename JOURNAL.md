@@ -309,3 +309,8 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 - Merged `stage/s7-assurance`, which stacks S4–S7, into `main` (merge commit, history kept). Tags `s4-accepted` to `s7-accepted` mark each stage's last commit. The S7 tag is on the merge.
 - Accepted as matching the brief, **not as ready for patients**. Still open: independent emergency phrasings, clinical review, real scans and audio, human grading for the judge, privacy review of OpenRouter, a real load test, backups.
 - Also open for the user: revoke the OpenRouter key pasted in chat if still in use, move the project out of iCloud, decide about the `name 2` files.
+
+### 2026-10-30 · Merge interrupted by iCloud
+- The first merge attempt failed: iCloud's storage optimisation had moved 554 of `.git`'s files to the cloud, and reads timed out ("mmap failed"). The checkout stopped partway, leaving `.gitignore` empty, so `.env` showed as untracked. Nothing was staged while that was true.
+- Recovered with no work lost: downloaded the files, confirmed with `git fsck`, restored `.gitignore` from git, merged, and tagged. On `main`: 334 tests, lint clean, `/health` all ok, screens up.
+- **This can happen again while the project lives in iCloud.** Moving it out is the fix, and it's the user's decision.
