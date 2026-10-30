@@ -1,8 +1,10 @@
 """Offline W2 ask paths through the real graph on scripted replies, on real ingested reports. Proves
 the routing and guardrails, not the quality of a real model's answers."""
 
+import json
 from pathlib import Path
 
+import pypdfium2
 from sqlalchemy import delete, select
 
 from sahyog.auth import AuthContext, Role, new_trace_id
@@ -18,6 +20,7 @@ from sahyog.llm.adapters.fake import FakeModel
 from sahyog.llm.adapters.fake_w1 import triage_script
 from sahyog.llm.gateway import ModelGateway, Prices, Route
 from sahyog.models import DeskTicket, Document, Patient
+from sahyog.safety.deid import KnownIdentity, Scrubber
 from sahyog.storage import get_minio
 
 SAMPLES = ("text-lab-0", "scan-lab-3", "text-discharge-0")
@@ -88,7 +91,11 @@ def w2_ask_paths(guardrails: bool) -> tuple[list[tuple], dict]:
                 for req in vendor.received:
                     if p.name in req.prompt or p.abha_id in req.prompt:
                         leaks.append(pid)
+        survival = _report_text_survives(owners)
+        terms = _report_terms()
         rows = [
+            survival,
+            terms,
             ("F1o", "Scripted answer cites document and page", "Yes", str(cited), cited),
             (
                 "F11o",
@@ -130,8 +137,52 @@ def w2_ask_paths(guardrails: bool) -> tuple[list[tuple], dict]:
             get_minio().remove_object(get_settings().report_bucket, uri)
 
 
-def _sample(name: str) -> str:
-    import json
+def _report_text_survives(owners) -> tuple:
+    """What the model reads must still hold the tests and values, with the patient gone. S1 checked
+    values and medicines only, and the name rules were replacing test names with <PERSON_n>."""
+    scrubber = Scrubber()
+    truth = json.loads((w2_samples.OUT / "truth.json").read_text())
+    total = kept = gone = people = 0
+    with get_sessionmaker()() as session:
+        for s in truth:
+            if s["group"] not in ("text", "search"):  # the pages with a text layer to compare
+                continue
+            patient = session.get(Patient, s["patient_id"])
+            known = KnownIdentity.from_patient(patient)
+            pdf = pypdfium2.PdfDocument(str(w2_samples.OUT / f"{s['name']}.pdf"))
+            for page in range(len(pdf)):
+                raw = pdf[page].get_textpage().get_text_bounded().replace("\r\n", "\n")
+                out = scrubber.scrub(raw, patient=known).text
+                people += 1
+                gone += patient.name not in out and patient.abha_id not in out
+                for f in s["facts"]:
+                    if f["page"] == page + 1 and f["kind"] == "value":
+                        total += 1
+                        kept += f"{f['label']} {f['value']}" in out
+    return (
+        "F22",
+        "Test names and values survive scrubbing; patient removed",
+        "100%",
+        f"values {kept}/{total}; patient removed on {gone}/{people} pages",
+        kept == total and gone == people,
+    )
 
+
+def _report_terms() -> tuple:
+    """Terms not in the sample reports: words the vocabulary may not have. Reported, not gated."""
+    scrubber = Scrubber()
+    terms = [t.strip() for t in Path("evals/w2/report_terms.txt").read_text().splitlines() if t]
+    lost = [t for t in terms if scrubber.scrub(f"Report\n{t}\nEnd").text != f"Report\n{t}\nEnd"]
+    return (
+        "F22b",
+        "Unseen report wording survives scrubbing",
+        "reported",
+        f"{len(terms) - len(lost)}/{len(terms)}"
+        + (f" — lost: {'; '.join(lost[:4])}" if lost else ""),
+        None,
+    )
+
+
+def _sample(name: str) -> str:
     truth = json.loads((w2_samples.OUT / "truth.json").read_text())
     return next(s["patient_id"] for s in truth if s["name"] == name)

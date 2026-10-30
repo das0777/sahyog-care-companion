@@ -262,7 +262,7 @@ def _quality(world: _World, cases: list[dict], *, record: str | None) -> int:
     for r in advice:
         if r not in advice_ok:
             print(
-                f"  not refused {r['case']['id']} [{r.get('status')}] {str(r.get('answer'))[:120]!r}"
+                f"  not refused {r['case']['id']} [{r.get('status')}] {str(r.get('answer'))[:99]!r}"
             )
     for r in emergency:
         if r not in emergency_ok:
@@ -462,7 +462,8 @@ def _speed(world: _World, cases: list[dict]) -> int:
     for task in sorted({r.task for r in world.gateway.records}):
         calls = [a.latency_ms for r in world.gateway.records if r.task == task for a in r.attempts]
         print(
-            f"    {task} model: median {statistics.median(calls):.0f} ms, slowest {max(calls):.0f} ms"
+            f"    {task} model: median {statistics.median(calls):.0f} ms, "
+            f"slowest {max(calls):.0f} ms"
         )
     print(f"{'PASS' if p95 < 8 else 'FAIL'}. Not a load test; that is S7.")
     return 0 if p95 < 8 else 1

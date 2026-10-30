@@ -31,7 +31,7 @@ from sahyog.records.search import Hit, retrieve_records
 from sahyog.safety.deid import KnownIdentity
 from sahyog.safety.language import detect
 from sahyog.safety.red_flags import RedFlagEngine
-from sahyog.safety.wording import asks_for_advice, clinical_answer
+from sahyog.safety.wording import asks_for_advice_on_records, clinical_answer
 from sahyog.scheduling import desk
 
 K = 8
@@ -164,7 +164,7 @@ class _Nodes:
                     {"rule": f.rule_id, "label": f.label, "kind": f.kind} for f in decision.fired
                 ]
             }
-        return {"status": "refuse"} if asks_for_advice(state["question"]) else {}
+        return {"status": "refuse"} if asks_for_advice_on_records(state["question"]) else {}
 
     def screen(self, state: AskState) -> AskState:
         with ThreadPoolExecutor(2) as pool:
