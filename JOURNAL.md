@@ -314,3 +314,9 @@ The live docs are the current versions. The PDFs are snapshots and must be re-ex
 - The first merge attempt failed: iCloud's storage optimisation had moved 554 of `.git`'s files to the cloud, and reads timed out ("mmap failed"). The checkout stopped partway, leaving `.gitignore` empty, so `.env` showed as untracked. Nothing was staged while that was true.
 - Recovered with no work lost: downloaded the files, confirmed with `git fsck`, restored `.gitignore` from git, merged, and tagged. On `main`: 334 tests, lint clean, `/health` all ok, screens up.
 - **This can happen again while the project lives in iCloud.** Moving it out is the fix, and it's the user's decision.
+
+### 2026-10-31 · Pushed to GitHub
+- The user created the private repo [das0777/sahyog-care-companion](https://github.com/das0777/sahyog-care-companion) and pushed `main` with all 11 tags, running the commands themself because this session's permission check blocked Claude from uploading.
+- Checked after the push: the repo is private, GitHub's `main` matches local at `0449657`, and `.env.example` is the only env file there. Before the push, a search of all commits for common key formats found nothing, which doesn't rule out every kind of secret.
+- The nine `stage/*` branches stay local.
+- Still open for the user: revoke the OpenRouter key pasted in chat if still in use, move the project out of iCloud, decide about the `name 2` files.
