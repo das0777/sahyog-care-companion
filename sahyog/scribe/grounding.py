@@ -147,9 +147,7 @@ def _windows(name: str, doctor: str) -> tuple[list[str], bool]:
         # ...and a dose that sits in front of another name is that name's, even when it's the
         # only number: "Continue amlodipine, Telma 40 mg" and "Give 5 mg amlodipine, 40 mg telma"
         stops += [
-            x.start()
-            for x in _BRAND_BEFORE_DOSE.finditer(window)
-            if x.group(1) not in _NOT_NAMES
+            x.start() for x in _BRAND_BEFORE_DOSE.finditer(window) if x.group(1) not in _NOT_NAMES
         ]
         stops += [
             x.start() for x in _DOSE_BEFORE_NAME.finditer(window) if x.group(1) not in _NOT_NAMES
