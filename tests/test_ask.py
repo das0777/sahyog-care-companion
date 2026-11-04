@@ -429,6 +429,12 @@ def test_new_state_takes_identity_from_the_context():
         "do i have diabetes, check my report",
         "is this cancer, per the scan",
         "kitni insulin leni chahiye",
+        # From the S4 re-review
+        "should I stop my tablets",
+        "what medicine for the sugar",
+        "which medicine is the best for my report",
+        "which dose is right for me per the report",
+        "report ke hisaab se kaunsi dawai",
     ],
 )
 def test_advice_wrapped_in_report_words_is_still_refused(question):
@@ -458,6 +464,18 @@ def test_a_read_back_question_still_goes_on(question):
         "Increase Metformin to 500 mg.",
         "You can stop the Metformin.",
         "आपकी शुगर ज्यादा है, दवा बढ़ा दें।",
+        # From the S4 re-review
+        "Aapka sugar high hai.",
+        "आपका हीमोग्लोबिन कम है।",
+        "Dawai band kar dijiye.",
+        "Metformin ki dose badha do.",
+        "Your HbA1c is normal.",
+        "Your values are fine, nothing to worry about.",
+        "Your cholesterol is on the higher side.",
+        "Creatinine is above the normal range.",
+        "You do not need Metformin any more.",
+        "Take one more tablet of Metformin 500 mg.",
+        "Your kidneys are not working well.",
     ],
 )
 def test_interpretation_and_dose_changes_are_blocked(answer):

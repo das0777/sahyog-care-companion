@@ -10,6 +10,10 @@ _ADVICE_REQUEST = [
     r"\b(what|which|how much)\b.*"
     r"\b(tablets?|medicines?|medication|dose|dosage|drugs?|antibiotics?|insulin)\b",
     r"\bprescribe\b",
+    # Changing a medicine (from the S4 re-review: "should I stop my tablets")
+    r"\b(stop|start|increase|reduce|skip|change|double)\b.*"
+    r"\b(tablets?|medicines?|medication|dose|insulin|dawa|dawai|goli|\w+(?:min|pril|sartan|statin|olol))\b",
+    r"\b(band|shuru|badha|ghata)\s+(kar|karu|karun|karoon|kardu|du|doon)\b",
     r"\bdiagnos",
     r"\bwhat (disease|illness|condition)\b",
     r"\bdo i have\b",
@@ -50,8 +54,19 @@ _INTERPRETIVE_ANSWER = [
     r"\b(you can|you may)\s+(stop|start|skip|reduce|increase)\b",
     r"\b(increase|decrease|reduce|raise|lower|stop|start|double|halve|skip)\b(?:\s+\w+){0,3}?\s+"
     r"(?:doses?|tablets?|medicines?|medication|insulin|\w+(?:min|pril|sartan|statin|olol|ide|ine))\b",
-    r"(ज्यादा|ज़्यादा|बहुत कम|बढ़ी हुई|असामान्य) है",
+    r"(ज्यादा|ज़्यादा|कम|अधिक|बढ़ी हुई|असामान्य|सामान्य|ठीक) है",
     r"(बढ़ा|घटा|बंद कर|शुरू कर)\s*(दें|दो|दीजिए|लें)",
+    # From the S4 re-review: Hinglish judgements and dose changes, reassurance, and "you don't need"
+    r"\b(high|low|kam|zyada|jyada|badha hua|normal|theek|thik)\s+(hai|hain|he)\b",
+    r"\b(band|shuru|badha|ghata|kam)\s+(kar|karo|kijiye|kar dijiye|kar do|do|dijiye)\b",
+    r"\b(dose|dawai|dawa|goli)\b.{0,20}\b(badha|ghata|band|kam)\b",
+    r"\b(is|are|was|were|looks?|seems?)\s+(\w+\s+)?(normal|fine|ok|okay|good|healthy|reassuring)\b",
+    r"\b(nothing|no need) to worry\b",
+    r"\bon the (higher|lower) side\b",
+    r"\b(above|below|within|outside)\s+(the\s+)?(normal|reference)\s+range\b",
+    r"\byou (do not|don't|no longer) need\b",
+    r"\btake\s+(one|two|another|more|an extra|\d+)\b",
+    r"\bnot (working|functioning) (well|properly)\b",
     r"\b(aapko|aap ko)\b.{0,30}\b(bimari|beemari|diabetes)\b",
     r"बीमारी है",
     r"(आपको|आप को).{0,30}(लेनी चाहिए|लेना चाहिए)",
@@ -75,7 +90,9 @@ _READ_BACK = re.compile(
 # "what dose of the metformin should I take" passed because of "the")
 _FORWARD = re.compile(
     r"\b(should|shall|must|need to|can i|do i have|am i|is (this|it)|could (this|it)"
-    r"|chahiye|lun|loon|leni|lena)\b|(चाहिए|लूं|लूँ|क्या मुझे)"
+    r"|chahiye|lun|loon|leni|lena|best|right for me|hisaab se|according to|per my"
+    r"|for (the|my) (sugar|bp|pressure|pain|fever|cholesterol|thyroid))\b"
+    r"|(चाहिए|लूं|लूँ|क्या मुझे|के हिसाब से)"
 )
 
 
