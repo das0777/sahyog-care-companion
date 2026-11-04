@@ -137,3 +137,19 @@ def test_capacity_cannot_drop_below_a_booked_token(conn):
             {"c": capacity - 1, "s": slot_id},
         )
     sp.rollback()
+
+
+def test_cancelled_booking_cant_come_back_above_capacity(conn):
+    """Book the top token, cancel it, shrink the block, then try to reinstate the booking."""
+    slot_id, capacity = _first_slot(conn)
+    _book(conn, slot_id, capacity, "k-back")
+    conn.execute(
+        text("UPDATE appointment SET status = 'cancelled' WHERE idempotency_key = 'k-back'")
+    )
+    conn.execute(text("UPDATE slot SET capacity = 1 WHERE slot_id = :s"), {"s": slot_id})
+    sp = conn.begin_nested()
+    with pytest.raises(DBAPIError, match="exceeds capacity"):
+        conn.execute(
+            text("UPDATE appointment SET status = 'booked' WHERE idempotency_key = 'k-back'")
+        )
+    sp.rollback()

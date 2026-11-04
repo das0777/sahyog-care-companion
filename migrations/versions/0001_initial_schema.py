@@ -67,7 +67,11 @@ SAFETY_RULES = [
     DECLARE
         cap integer;
     BEGIN
-        SELECT capacity INTO cap FROM slot WHERE slot_id = NEW.slot_id;
+        IF NEW.status = 'cancelled' THEN
+            RETURN NEW;
+        END IF;
+        -- FOR SHARE: a concurrent capacity change waits, so the two triggers can't both pass
+        SELECT capacity INTO cap FROM slot WHERE slot_id = NEW.slot_id FOR SHARE;
         IF NEW.token_no > cap THEN
             RAISE EXCEPTION 'token % exceeds capacity % of slot %', NEW.token_no, cap, NEW.slot_id
                 USING ERRCODE = 'check_violation';
@@ -78,7 +82,7 @@ SAFETY_RULES = [
     """,
     """
     CREATE TRIGGER appointment_token_within_capacity
-    BEFORE INSERT OR UPDATE OF token_no, slot_id ON appointment
+    BEFORE INSERT OR UPDATE OF token_no, slot_id, status ON appointment
     FOR EACH ROW EXECUTE FUNCTION check_token_within_capacity()
     """,
     # The same rule from the other side: a block's capacity can't drop below a booked token
