@@ -89,3 +89,22 @@ Added as each pull request merges.
 - **Test that catches it now:** `test_a_family_members_report_is_held` (including titled and longer names), `test_a_worker_that_lost_its_lease_writes_nothing`, `test_a_giant_page_is_refused_at_upload`, and D14 with titled samples. 286 passed.
 - **Recorded risks, fix before real data:** search takes `patient_id` from the caller (S4's scope guard must check it, so S4's reviewer is asked to verify); no audit on zero-hit searches; the P-number pattern over-quarantines; D10 checks the chunk's own patient, not the document's; D12 compares 40 characters without collapsing whitespace; no request-body size limit; files left in MinIO when an insert fails; a process-wide PDF lock in the API; keyword candidates without an outer order; the worker can reach the network; "Patient name" without a colon, with the name on the next line, isn't checked; "Mrs.Priya" with no space isn't stripped; D14 samples use only "Smt.".
 
+### #13 · S4 W2 Ask
+
+| | |
+|---|---|
+| **Pull request** | [#13](https://github.com/das0777/sahyog-care-companion/pull/13), ported from the MVP at `s4-accepted` on top of the reviewed S0 to S3. One manual merge in `tests/test_deid.py` |
+| **Review** | A new independent AI review agent (Claude, fresh), run by the coding agent at the owner's request. Three rounds, on the pull request. **The owner merged after round 2's fixes were pushed but before round 3's verdict**; round 3 then said OK to merge. This entry is written afterwards, in the next pull request, because #13's branch was closed |
+| **CI** | Still not running (GitHub also had an outage affecting git operations and pull requests during this review). Lint, tests and evals ran locally (`evals/runs/s4-tests.txt`) |
+
+- **Agent proposed:** the MVP's W2 ask: scope guard, red-flag gate, retrieval, answer citing excerpts, safety check in code.
+- **Carried from S3, verified:** `retrieve_records` takes `patient_id` from its caller. The reviewer confirmed its only S4 caller runs after `scope_guard`'s `can_read`, and that nothing streams before the safety check.
+- **Review round 1: changes needed, two must-fix items.**
+  - *The diagnosis and dose refusal was switched off by everyday words* ("the", "was", "report"): "what dose of the metformin should I take" and "do I have diabetes, check my report" went to the model. **Fixed:** a forward-looking question is advice however it mentions the report.
+  - *The code-side answer check missed most interpretation and dose-change wording* ("is low", "which is high", "Increase Metformin", "You can stop", Hindi). **Fixed.**
+- **Review round 2: changes needed.** Hinglish and Hindi judgements, Hinglish dose changes, reassurance ("is normal", "nothing to worry about") and a stop/start rule for questions were still missing. **Fixed.**
+- **Review round 3: OK to merge.** 51 of 51 earlier inputs correct, 22 of 29 new ones. **The reviewer advised stopping the phrase chase:** each round fixed the exact inputs given, and new rewordings still slip through. The word lists are a backstop behind the model's diagnosis-or-dose flag. Its 7 misses are now expected-failure tests (`test_s4_backstop_misses`), S4's stage doc says the lists are a backstop, and **S7 must measure them in both directions on rewordings nobody has seen.**
+- **Where the agent was wrong:** the MVP's refusal had a fail-open read-back exception, and its answer check covered only a narrow set of phrases; its tests only used phrases the checks already caught.
+- **Test that catches it now:** `test_advice_wrapped_in_report_words_is_still_refused`, `test_a_read_back_question_still_goes_on`, `test_interpretation_and_dose_changes_are_blocked`, `test_a_plain_read_back_is_not_blocked`. 362 passed.
+- **Recorded risks, fix before real data:** the number check compares sets (a swapped value and range pass; "1,000" against "1,50,000"; number words unchecked); `guardrails=False` also disables `can_read` (eval-only, but authorisation shouldn't depend on it); the crash ticket uses the request body's patient_id; the patient-ID pattern is case-sensitive; F16o is hard-coded under guardrails-off; F17 doesn't check the Devanagari name; **the live and red-team results are from the MVP (2026-10-30) and weren't re-run on this graph**, because there's no model key in this build; the checks are too strict in a few read-back cases (a desk ticket, not a wrong answer).
+
