@@ -1,5 +1,5 @@
 # s1: lint and tests
-commit: 4b54151  date: 2026-11-04T07:01Z
+commit: 6242fb7  date: 2026-11-04T07:32Z
 image: sahyog-app:dev (MVP image, code mounted from this checkout)
 
 ## ruff
@@ -8,10 +8,10 @@ All checks passed!
 ruff exit 0
 
 ## pytest
-........................................................................ [ 44%]
-........................................................................ [ 88%]
-...................                                                      [100%]
-163 passed in 4.73s
+........................................................................ [ 40%]
+........................................................................ [ 80%]
+...................................                                      [100%]
+179 passed in 4.03s
 
 ## make eval (guardrails on)
 
@@ -22,7 +22,7 @@ B1    Red-flag recall (golden)                           100%                PAS
 B1r   Red-flag recall (blind probes, now regression)     100%                PASS    30/30
 B3    False alarms on non-emergencies                    ≤ 20% (reported)    info    1/17 — w1-017
 B4    Language detection                                 ≥ 90%               PASS    30/30
-B12   Red-flag check latency                             p95 < 50 ms         PASS    p95 12.32 ms
+B12   Red-flag check latency                             p95 < 50 ms         PASS    p95 10.55 ms
 B5    Identifiers leaving the boundary (200 payloads)    0                   PASS    0
 B6    Clinical content kept after scrubbing              ≥ 95%               PASS    350/350 (100.0%)
 B5b   Names not in the name list caught (NER and rules)  reported            info    26/26
