@@ -102,10 +102,11 @@ class KnownIdentity:
     phone: str | None = None
     abha_id: str | None = None
     dob: date | None = None
+    name_local: str | None = None  # the name in Devanagari
 
     @classmethod
     def from_patient(cls, patient) -> "KnownIdentity":
-        return cls(patient.name, patient.phone, patient.abha_id, patient.dob)
+        return cls(patient.name, patient.phone, patient.abha_id, patient.dob, patient.name_local)
 
 
 @dataclass(frozen=True)
@@ -160,6 +161,13 @@ class Scrubber:
 
 def _known(text: str, p: KnownIdentity, today: date) -> list[Span]:
     spans = []
+    if p.name_local:
+        # Devanagari has no case, so the full name and each part of two letters or more are removed
+        for form in [p.name_local.strip(), *p.name_local.split()]:
+            if len(form) >= 2:
+                spans += [
+                    Span(m.start(), m.end(), "PERSON") for m in re.finditer(re.escape(form), text)
+                ]
     full = re.escape(p.name.strip())
     spans += [Span(m.start(), m.end(), "PERSON") for m in re.finditer(full, text, re.IGNORECASE)]
     for part in p.name.split():

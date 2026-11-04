@@ -85,6 +85,8 @@ class Patient(Base):
     patient_id: Mapped[str] = mapped_column(String(8), primary_key=True)
     abha_id: Mapped[str] = mapped_column(String(17), unique=True)
     name: Mapped[str] = mapped_column(String(120))
+    # The name as written in Devanagari, so the scrubber can remove it from Hindi text too
+    name_local: Mapped[str | None] = mapped_column(String(120))
     dob: Mapped[date] = mapped_column(Date)
     phone: Mapped[str] = mapped_column(String(20))
     language: Mapped[str] = mapped_column(String(8))
