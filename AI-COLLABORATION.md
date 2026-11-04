@@ -69,3 +69,24 @@ Added as each pull request merges.
 - **Carried to S2:** never contact a synthetic patient (from #1); keep Devanagari known-patient prompts in-region or seed a Devanagari name; a fixed "N or more tablets" rule with these wordings as golden cases.
 - **Recorded risks, fix before real data:** over-scrubbing of capitalised symptom and test names (the MVP later added C22 and F22); ABHA addresses and landlines leak; B5 is partly circular; no Marathi; Ollama errors escape the fallback; some false alarms and typo misses; the guardrails-off run doesn't cover B6 and B7; no warning when the database holds an older rules version.
 
+### #11 · S2 W1 Find my doctor, with three carried safety items
+
+| | |
+|---|---|
+| **Pull request** | [#11](https://github.com/das0777/sahyog-care-companion/pull/11), ported from the MVP at `s2-accepted` on top of the reviewed S0 and S1, plus three items earlier reviews made conditions for S2 |
+| **Review** | A new independent AI review agent (Claude, fresh), run by the coding agent at the owner's request. Three rounds, on the pull request. The reviewer reproduced problems on a disposable database with its own scripts. The owner didn't read the code line by line |
+| **CI** | Still not running on this repo. Lint, tests and evals ran locally on the fixed code (`evals/runs/s2-tests.txt`) |
+
+- **Agent proposed:** the MVP's W1, plus the three carried items: `notify.deliver` refuses synthetic patients; `patient.name_local` stores, seeds and scrubs the Devanagari name; `overdose_by_count` is a fixed rule for counted overdoses.
+- **Review round 1: changes needed, four must-fix items.** The reviewer found the safety order, identity checks and booking basics sound.
+  - *The desk override reason was required but thrown away,* so overrides were audited without a reason. **Fixed:** `audit_event.reason`.
+  - *Two desk moves at once double-booked the patient.* The reviewer reproduced it: two active bookings and two SMS rows. **Fixed:** the override locks and re-reads the booking. A test runs the interleaving with two sessions.
+  - *The overdose rule missed common forms* (a second count, "500mg" between count and unit, no unit, more Hinglish verbs). **Fixed:** largest count, wider pattern, drug names as units.
+  - *The Devanagari name was removed as a substring,* cutting "बलगम" (phlegm) and "आराम". Faker's honorifics were also being seeded as names. **Fixed:** whole-word matching, and first plus last name only.
+- **Review round 2: changes needed, one item.** The agent's round-1 fix added a 4-letter minimum for name parts, which let 3-letter names like रवि and सेन through on their own (286 of 1,000 seeded patients). The reviewer called it redundant once matching was whole-word. **Fixed:** the minimum is replaced by a stoplist of name parts that are everyday words, and the danda "।" no longer blocks a match. A new test checks every seeded patient's name.
+- **Review round 3: OK to merge.** The reviewer checked all 1,000 seeded patients.
+- **Where the agent was wrong:** the MVP's desk override lost its reason and could double-book under concurrency; the first overdose rule and the first Devanagari scrub were each too narrow; and **the agent's own fix in round 1 introduced a new leak**, caught only because the reviewer re-ran its probes.
+- **Test that catches it now:** `test_two_desk_moves_at_once_leave_one_booking`, the reason assert in the cancel test, `test_an_overdose_by_count_is_caught` (nine wordings) with `test_a_normal_dose_does_not_flag`, `test_devanagari_name_parts_never_cut_into_other_words`, `test_a_short_devanagari_name_on_its_own_is_removed`, `test_every_seeded_devanagari_name_is_removed`, and `test_a_synthetic_patient_is_never_contacted`. 261 passed.
+- **Recorded risks, fix before real data:** the second pass can fall back to an unmeasured in-region model; the match model sees scrubbed text before the safety check clears; a replayed booking key can return a cancelled booking as "booked"; `IdempotencyConflict` becomes a generic 503; any desk user can close another's ticket without a reason; `notify.deliver` isn't called anywhere yet (no sender exists); 18 seeded patients have a stoplisted name part sent when written alone; no egress eval covers `name_local` (unit tests do).
+- **Eval integrity, recorded:** `MATCH_SYSTEM` quotes three test cases word for word, so "vague asked 10/10" is partly measured on the prompt's own examples; probe 3's 15/15 in `measurements.jsonl` lacks its "not blind" caveat.
+
