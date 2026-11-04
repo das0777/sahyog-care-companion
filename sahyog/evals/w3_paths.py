@@ -24,7 +24,7 @@ from sahyog.models import (
     SmsOutbox,
     StockReservation,
 )
-from sahyog.scheduling.service import reserve_slot
+from sahyog.scheduling.service import AlreadyBooked, BlockFull, reserve_slot
 from sahyog.scribe.stock import CsvStockAdapter
 
 
@@ -157,15 +157,23 @@ def w3_paths(guardrails: bool) -> tuple[list[tuple], dict]:
 
 
 def _encounter(sessions) -> tuple[uuid.UUID, uuid.UUID]:
+    # A signed note can't be deleted, so each run needs a block this patient isn't in yet
     with sessions.begin() as session:
-        slot = session.execute(select(Slot).order_by(Slot.starts_at.desc()).limit(1)).scalar()
-        r = reserve_slot(
-            session,
-            slot_id=slot.slot_id,
-            patient_id="P0998",
-            idem_key=f"eval-w3-{uuid.uuid4().hex}",
-            booked_by="eval",
-        )
+        slots = session.execute(select(Slot).order_by(Slot.starts_at.desc()).limit(200)).scalars()
+        for slot in slots:
+            try:
+                r = reserve_slot(
+                    session,
+                    slot_id=slot.slot_id,
+                    patient_id="P0998",
+                    idem_key=f"eval-w3-{uuid.uuid4().hex}",
+                    booked_by="eval",
+                )
+                break
+            except (AlreadyBooked, BlockFull):
+                continue
+        else:
+            raise RuntimeError("No free block left for the W3 eval: run make seed")
         encounter = Encounter(appt_id=r.appt_id, doctor_id=slot.doctor_id)
         session.add(encounter)
         session.flush()
