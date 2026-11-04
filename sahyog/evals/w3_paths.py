@@ -43,7 +43,8 @@ def _inventing(request):
         plan = [
             {"text": "Start a low dose statin", "quote": "Start a low dose statin"},
             {"text": "Rosuvastatin 40 mg", "quote": "Rosuvastatin 40 mg"},
-            {"text": "Add warfarin 5 mg", "quote": "Start a low dose statin"},
+            # An unlisted drug (not in KNOWN_MOLECULES), so the eval can't pass on the list alone
+            {"text": "Add apixaban 5 mg", "quote": "Start a low dose statin"},
         ]
         return json.dumps({"subjective": [], "objective": [], "assessment": [], "plan": plan})
     return triage_script(request)
@@ -91,7 +92,7 @@ def w3_paths(guardrails: bool) -> tuple[list[tuple], dict]:
         pause = [i.value for t in graph.get_state(config).tasks for i in t.interrupts][0]
         names = [m["name"].lower() for m in pause["medicines"]]
         plan = " ".join(line["text"].lower() for line in pause["soap"]["plan"])
-        invented = sum(w in names or w in plan for w in ("rosuvastatin", "warfarin"))
+        invented = sum(w in names or w in plan for w in ("rosuvastatin", "apixaban"))
         gap_kept = any("statin" in g["term"].lower() for g in pause["gaps"])
         flagged = all("stock" in m for m in pause["medicines"])
         with sessions() as session:

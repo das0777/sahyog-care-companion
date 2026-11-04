@@ -328,7 +328,8 @@ def test_invented_drug_from_the_model_never_reaches_the_doctor(client, world):
     assert not draft["medicines"] and draft["gaps"][0]["term"] == "statin"
     assert not draft["soap"]["assessment"]
     plan = draft["soap"]["plan"][0]["text"]
-    assert "warfarin" not in plan.lower() and "doctor to specify" in plan
+    # The line added a drug and a dose its quote doesn't hold, so it becomes the doctor's words
+    assert "warfarin" not in plan.lower() and plan == "Start a low dose statin."
     assert len(draft["flags"]) >= 3
 
 
@@ -418,3 +419,77 @@ def test_a_prompt_never_shares_five_words_with_an_eval_case():
     for prompt in (w3_prompts.DRAFT_SYSTEM, w3_prompts.MEDS_SYSTEM):
         w = re.findall(r"\w+", normalise(prompt))
         assert not {tuple(w[i : i + 5]) for i in range(len(w) - 4)} & grams
+
+
+# ---- from the S5 review: grounding a medicine to what the doctor said about it -----------------
+
+
+def _one(name, dose, doctor, span=None):
+    out = grounding.ground_medicines(
+        [{"name": name, "dose": dose, "span": span or doctor[:30]}], doctor
+    )
+    return out
+
+
+def test_a_dose_must_sit_beside_its_own_medicine():
+    out = _one("Amlodipine", "5 mg", "Start amlodipine 25 mg once daily.")
+    assert out.medicines[0]["dose_gap"]
+    out = _one("Atorvastatin", "50 mg", "Atorvastatin daily. Metformin 250 mg twice.")
+    assert out.medicines[0]["dose_gap"]
+    out = _one("Amlodipine", "25 mg once daily", "Start amlodipine 25 mg once daily.")
+    assert out.medicines[0]["dose"] == "25 mg once daily"
+
+
+def test_a_route_or_frequency_not_said_is_a_gap():
+    out = _one("Ceftriaxone", "250 mg IV every 4 hours", "Give ceftriaxone 250 mg.")
+    assert out.medicines[0]["dose_gap"]
+
+
+def test_a_similar_or_misspelled_name_is_not_the_doctors():
+    assert _one("Valsartan", "50 mg", "Continue losartan 50 mg.").dropped == ["Valsartan"]
+    assert _one("Amiodipine", "5 mg", "Start amlodipine 5 mg.").dropped == ["Amiodipine"]
+
+
+@pytest.mark.parametrize(
+    "doctor", ["Do not give metformin 500 mg.", "Stop aspirin 75 mg.", "No metformin 500 mg now."]
+)
+def test_a_negated_medicine_is_not_prescribed(doctor):
+    name = "Aspirin" if "aspirin" in doctor else "Metformin"
+    out = _one(name, "500 mg" if name == "Metformin" else "75 mg", doctor)
+    assert not out.medicines and out.dropped == [name]
+
+
+@pytest.mark.parametrize(
+    ("text", "quote", "strict"),
+    [
+        ("Start apixaban 5 mg", "Start a low dose statin", True),
+        ("Ecosprin 75", "continue the blood thinner", True),
+        ("Metformin fifty mg", "metformin as before", True),
+        ("BP 150/90", "BP was high", False),
+    ],
+)
+def test_a_soap_line_cant_add_to_its_quote(text, quote, strict):
+    assert grounding.unfaithful(text, quote, strict=strict)
+
+
+def test_a_soap_line_that_restates_its_quote_is_kept():
+    assert not grounding.unfaithful(
+        "Continue metformin 500 mg twice daily",
+        "continue metformin 500 mg twice daily",
+        strict=True,
+    )
+
+
+def test_an_edited_medicine_without_a_dose_blocks_the_signature():
+    from sahyog.graphs.w3 import unresolved
+
+    edits = {"medicines": [{"name": "Atorvastatin", "dose": ""}]}
+    assert unresolved({"gaps": [], "medicines": []}, edits) == ["Atorvastatin: no dose"]
+
+
+def test_editing_medicines_doesnt_clear_an_open_gap():
+    from sahyog.graphs.w3 import unresolved
+
+    state = {"gaps": [{"text": "statin [molecule and dose not stated]"}], "medicines": []}
+    edits = {"medicines": [{"name": "Metformin", "dose": "500 mg"}]}
+    assert unresolved(state, edits) == ["statin [molecule and dose not stated]"]

@@ -130,6 +130,15 @@ class _Nodes:
                     flags.append(f"Removed a {section} line that didn't quote the transcript")
                     continue
                 text = line.text
+                if self.d.grounding_enabled:
+                    # From the S5 review: the line may restate its quote, not add to it
+                    extra = grounding.unfaithful(text, line.quote, strict=only_doctor)
+                    if extra:
+                        flags.append(
+                            f"Replaced a {section} line with the doctor's words: "
+                            f"it added {', '.join(extra)}"
+                        )
+                        text = line.quote
                 if self.d.grounding_enabled and only_doctor:
                     text, removed = grounding.clean_plan_line(
                         text, f"{state['transcript']} {comments}"
@@ -216,15 +225,19 @@ class _Nodes:
                     "name": m["name"],
                     "dose": m.get("dose", ""),
                     "span": "doctor edit",
-                    "dose_gap": False,
-                    "text": f"{m['name']} {m.get('dose', '')}".strip(),
+                    # From the S5 review: an edited medicine with no dose is still a gap
+                    "dose_gap": not m.get("dose", "").strip(),
+                    "text": f"{m['name']} {m.get('dose', '')}".strip()
+                    if m.get("dose", "").strip()
+                    else f"{m['name']} [dose not stated: doctor to specify]",
                     "stock": vars(
                         self.d.stock.lookup(m["name"], m.get("dose", ""), state["clinic_id"])
                     ),
                 }
                 for m in edits["medicines"]
             ]
-            out["gaps"] = edits.get("gaps", [])
+            # A gap is removed only by sending the gap list; editing medicines doesn't clear it
+            out["gaps"] = edits["gaps"] if "gaps" in edits else state.get("gaps", [])
         if decision["decision"] == "edit":
             return out | {"status": "recheck"}
         return out | {"status": "sign"}
@@ -333,6 +346,8 @@ def unresolved(state: dict, edits: dict | None) -> list[str]:
     """A signature can't leave a gap open: the doctor fills it or removes it."""
     edits = edits or {}
     gaps = edits["gaps"] if "gaps" in edits else state.get("gaps", [])
-    meds = edits.get("medicines")
-    dose_gaps = [] if meds is not None else [m for m in state.get("medicines", []) if m["dose_gap"]]
+    if edits.get("medicines") is not None:
+        no_dose = [m["name"] for m in edits["medicines"] if not m.get("dose", "").strip()]
+        return [g["text"] for g in gaps] + [f"{n}: no dose" for n in no_dose]
+    dose_gaps = [m for m in state.get("medicines", []) if m["dose_gap"]]
     return [g["text"] for g in gaps] + [m["text"] for m in dose_gaps]

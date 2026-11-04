@@ -93,6 +93,48 @@ class GroundedMeds:
     dropped: list[str] = field(default_factory=list)
 
 
+# Words before a medicine that mean it isn't being prescribed ("do not give metformin")
+_NEGATION = re.compile(
+    r"\b(no|not|don't|dont|do not|never|stop|stopped|discontinue|discontinued|avoid|hold|without"
+    r"|band|mat|nahi|nahin)\b[^.?!;]{0,25}$"
+)
+_SENTENCE_END = re.compile(r"[.?!;\n]")
+# Dose words that are units, not route or frequency
+_UNITS = {"mg", "mcg", "g", "ml", "iu", "unit", "units", "milligram", "milligrams", "microgram"}
+
+
+def _windows(name: str, doctor: str) -> list[str]:
+    """What the doctor said about this medicine: from each whole-word mention to the end of its
+    sentence, or to the next medicine. A negated mention isn't a prescription."""
+    said = normalise(doctor)
+    out = []
+    for m in re.finditer(rf"(?<![a-z]){re.escape(normalise(name))}(?![a-z])", said):
+        before = said[max(0, m.start() - 40) : m.start()]
+        before = _SENTENCE_END.split(before)[-1]
+        if _NEGATION.search(before):
+            continue
+        rest = said[m.end() :]
+        end = _SENTENCE_END.search(rest)
+        window = rest[: end.start() if end else len(rest)]
+        nxt = [re.search(rf"(?<![a-z]){w}(?![a-z])", window) for w in KNOWN_MOLECULES]
+        cut = min((x.start() for x in nxt if x), default=len(window))
+        out.append(window[:cut])
+    return out
+
+
+def _dose_said(dose: str, windows: list[str]) -> bool:
+    """Every number, and every route or frequency word, must sit next to this medicine."""
+    d = normalise(dose)
+    numbers = re.findall(r"\d+(?:\.\d+)?", d)
+    words = [w for w in re.findall(r"[a-z]+", d) if w not in _UNITS]
+    for window in windows:
+        if all(re.search(rf"(?<![\d.]){re.escape(n)}(?![\d])", window) for n in numbers) and all(
+            re.search(rf"\b{re.escape(w)}\b", window) for w in words
+        ):
+            return True
+    return False
+
+
 def ground_medicines(raw: list[dict], doctor: str) -> GroundedMeds:
     out = GroundedMeds()
     seen = set()
@@ -102,7 +144,13 @@ def ground_medicines(raw: list[dict], doctor: str) -> GroundedMeds:
         if key in seen:
             continue
         seen.add(key)
-        if not quoted(span, doctor, SPAN_MATCH) or not quoted(name, doctor, SPAN_MATCH):
+        if not quoted(span, doctor, SPAN_MATCH):
+            out.dropped.append(name)
+            continue
+        # From the S5 review: the name itself must be said, as a whole word (no fuzzy match:
+        # "valsartan" isn't "losartan"), and not in a negated mention ("do not give metformin")
+        windows = _windows(name, doctor)
+        if not windows and not _is_class(key):
             out.dropped.append(name)
             continue
         if _is_class(key):
@@ -114,10 +162,9 @@ def ground_medicines(raw: list[dict], doctor: str) -> GroundedMeds:
                 }
             )
             continue
-        dose = m.get("dose") or ""
-        said = bool(dose) and any(n in normalise(doctor) for n in DOSE.findall(dose.lower()))
-        if dose and not said:
-            dose = ""
+        dose = (m.get("dose") or "").strip()
+        if dose and not _dose_said(dose, windows):
+            dose = ""  # a dose, route or frequency not said beside this medicine is a gap
         out.medicines.append(
             {
                 "name": name,
@@ -135,6 +182,40 @@ def ground_medicines(raw: list[dict], doctor: str) -> GroundedMeds:
 def _is_class(name: str) -> bool:
     singular = " ".join(w.removesuffix("s") for w in name.split())
     return any(re.search(rf"\b{re.escape(c)}\b", singular) for c in DRUG_CLASSES)
+
+
+NUMBER_WORDS = (
+    "one two three four five six seven eight nine ten eleven twelve fifteen twenty twenty-five "
+    "thirty forty fifty sixty seventy eighty ninety hundred thousand half"
+).split()
+_DRUG_SHAPE = re.compile(
+    r"\b\w+(?:pril|sartan|statin|olol|xaban|parin|dipine|prazole|mycin|cillin|floxacin|cycline"
+    r"|gliptin|glitazone|formin|sprin)\b"
+)
+
+
+def unfaithful(text: str, quote: str, *, strict: bool) -> list[str]:
+    """What a SOAP line says that its own quote doesn't: numbers (digits or words) always, and in
+    the assessment and plan, drug-shaped words and capitalised names (brands) too."""
+    q = normalise(quote)
+    extra = [
+        n
+        for n in re.findall(r"\d+(?:\.\d+)?", text)
+        if not re.search(rf"(?<![\d.]){re.escape(n)}(?![\d])", q)
+    ]
+    extra += [
+        w for w in re.findall(r"[a-z-]+", normalise(text)) if w in NUMBER_WORDS and w not in q
+    ]
+    if strict:
+        lowered = normalise(text)
+        extra += [w for w in _DRUG_SHAPE.findall(lowered) if w not in q]
+        extra += [w for w in lowered.split() if w.strip(".,") in KNOWN_MOLECULES and w not in q]
+        extra += [
+            w
+            for w in re.findall(r"(?<![.!?]\s)(?<!^)\b[A-Z][a-z]{3,}\b", text)
+            if w.lower() not in q
+        ]
+    return list(dict.fromkeys(extra))
 
 
 def clean_plan_line(text: str, transcript: str) -> tuple[str, list[str]]:
