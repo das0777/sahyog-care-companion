@@ -1,31 +1,31 @@
 # s2: lint and tests
-commit: 640b680  date: 2026-11-04T07:42Z
+commit: 3c24176  date: 2026-11-04T07:45Z
 image: sahyog-app:dev (MVP image, code mounted from this checkout)
 evals read sahyog_eval, rebuilt on each run from this branch's migrations and full seed
 
 ## ruff
 All checks passed!
-64 files already formatted
+66 files already formatted
 ruff exit 0
 
 ## pytest
-...............................................x........................ [ 30%]
-........................................................................ [ 60%]
-........................................................................ [ 90%]
-.......................                                                  [100%]
-238 passed, 1 xfailed in 6.75s
+........................................................................ [ 29%]
+........................................................................ [ 58%]
+........................................................................ [ 87%]
+................................                                         [100%]
+248 passed in 6.65s
 
 ## make eval (guardrails on)
 (eval database sahyog_eval rebuilt from this branch: migrations and full seed)
 
-Offline evals — guardrails ON — rules 2026-11-04.1
+Offline evals — guardrails ON — rules 2026-11-04.2
 
       Check                                                         Target              Status  Result
 B1    Red-flag recall (golden)                                      100%                PASS    13/13
 B1r   Red-flag recall (blind probes, now regression)                100%                PASS    30/30
 B3    False alarms on non-emergencies                               ≤ 20% (reported)    info    1/17 — w1-017
 B4    Language detection                                            ≥ 90%               PASS    30/30
-B12   Red-flag check latency                                        p95 < 50 ms         PASS    p95 10.85 ms
+B12   Red-flag check latency                                        p95 < 50 ms         PASS    p95 11.30 ms
 B5    Identifiers leaving the boundary (200 payloads)               0                   PASS    0
 B6    Clinical content kept after scrubbing                         ≥ 95%               PASS    350/350 (100.0%)
 B5b   Names not in the name list caught (NER and rules)             reported            info    26/26
