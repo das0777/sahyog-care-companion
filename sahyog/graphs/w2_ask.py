@@ -64,6 +64,7 @@ class AskState(TypedDict, total=False):
     status: str
     answer: str
     citations: list[dict]
+    sentences: list[dict]
     scan_warning: str | None
     ticket_id: str | None
     service_unavailable: bool
@@ -265,6 +266,20 @@ class _Nodes:
                 seen.add(key)
                 citations.append({"doc_id": str(h.doc_id), "page": h.page, "source": h.source})
         text = " ".join(s["text"].strip() for s in state["draft"]["sentences"])
+        sentences = [
+            {
+                "text": s["text"].strip(),
+                "citations": [
+                    {
+                        "doc_id": str(hits[i - 1].doc_id),
+                        "page": hits[i - 1].page,
+                        "source": hits[i - 1].source,
+                    }
+                    for i in dict.fromkeys(s["excerpts"])
+                ],
+            }
+            for s in state["draft"]["sentences"]
+        ]
         scanned = sorted({h.page for h in cited if h.source == "ocr"})
         warning = None
         if scanned:
@@ -278,6 +293,7 @@ class _Nodes:
             "status": "answered",
             "answer": f"{text}\n\n{warning}" if warning else text,
             "citations": citations,
+            "sentences": sentences,
             "scan_warning": warning,
         }
 
