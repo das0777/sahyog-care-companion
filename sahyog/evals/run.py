@@ -23,6 +23,7 @@ from sahyog.evals.egress import build_payloads, detect
 from sahyog.evals.w1_paths import w1_paths
 from sahyog.evals.w2_ask_paths import w2_ask_paths
 from sahyog.evals.w2_ingest import w2_ingest
+from sahyog.evals.w3_paths import w3_paths
 from sahyog.llm.adapters.fake import FakeModel
 from sahyog.llm.gateway import ModelGateway, Prices, Route
 from sahyog.llm.schemas import Ack, SpecialtyMatch
@@ -76,6 +77,9 @@ def main(argv: list[str] | None = None) -> int:
     ask_rows, ask_details = w2_ask_paths(guardrails)
     checks += [Check(*row) for row in ask_rows]
     details |= ask_details
+    scribe_rows, scribe_details = w3_paths(guardrails)
+    checks += [Check(*row) for row in scribe_rows]
+    details |= scribe_details
 
     gated = [c for c in checks if c.passed is not None]
     ok = all(c.passed for c in gated)
