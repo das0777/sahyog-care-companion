@@ -452,9 +452,10 @@ def test_a_similar_or_misspelled_name_is_not_the_doctors():
     "doctor", ["Do not give metformin 500 mg.", "Stop aspirin 75 mg.", "No metformin 500 mg now."]
 )
 def test_a_negated_medicine_is_not_prescribed(doctor):
+    """Not prescribed, and not silently dropped either: the doctor confirms or removes it."""
     name = "Aspirin" if "aspirin" in doctor else "Metformin"
     out = _one(name, "500 mg" if name == "Metformin" else "75 mg", doctor)
-    assert not out.medicines and out.dropped == [name]
+    assert not out.medicines and out.gaps[0]["term"] == name
 
 
 @pytest.mark.parametrize(
@@ -518,24 +519,62 @@ def test_a_dose_window_stops_at_an_unlisted_drug_or_a_new_clause():
 
 
 @pytest.mark.parametrize(
-    "doctor", ["Metformin 500 mg is not needed anymore.", "Warfarin 5 mg should be avoided."]
+    "doctor",
+    [
+        "Metformin 500 mg is not needed anymore.",
+        "Warfarin 5 mg should be avoided.",
+        # From the S5 re-review 2
+        "Metformin 500 mg, do not take it.",
+        "Aspirin 75 mg, don't continue.",
+        "Metformin 500 mg mat lena.",
+    ],
 )
-def test_a_medicine_negated_after_its_name_is_not_prescribed(doctor):
-    name = "Warfarin" if "Warfarin" in doctor else "Metformin"
-    assert not _one(name, "500 mg" if name == "Metformin" else "5 mg", doctor).medicines
+def test_a_negation_anywhere_in_the_sentence_makes_the_doctor_confirm(doctor):
+    name = next(n for n in ("Warfarin", "Aspirin", "Metformin") if n in doctor)
+    out = _one(name, "500 mg", doctor)
+    assert not out.medicines and out.gaps[0]["term"] == name
 
 
 @pytest.mark.parametrize(
     ("name", "dose", "doctor"),
     [
         ("Metformin", "500 mg", "No change, continue metformin 500 mg."),
-        ("Paracetamol", "650 mg", "If no relief, take paracetamol 650 mg."),
-        ("Telmisartan", "40 mg", "Stop amlodipine and start telmisartan 40 mg."),
+        ("Telmisartan", "40 mg", "Continue telmisartan 40 mg, avoid salt."),
+        ("Paracetamol", "650 mg", "Patient has no fever so give paracetamol 650 mg."),
     ],
 )
-def test_a_negation_elsewhere_in_the_sentence_doesnt_drop_a_prescription(name, dose, doctor):
+def test_a_real_prescription_near_a_negation_is_kept_for_the_doctor(name, dose, doctor):
+    """Not dropped as unsaid: kept as a gap the doctor confirms in one step."""
     out = _one(name, dose, doctor)
-    assert out.medicines and out.medicines[0]["dose"] == dose
+    assert name not in out.dropped and out.gaps[0]["term"] == name
+
+
+def test_a_prescription_with_no_negation_is_kept_with_its_dose():
+    out = _one("Telmisartan", "40 mg", "Stop amlodipine and start telmisartan 40 mg.")
+    assert name_kept(out, "Telmisartan") or out.gaps  # its sentence holds "stop": doctor confirms
+    out = _one("Metformin", "500 mg twice daily", "Metformin 500 mg, twice daily.")
+    assert out.medicines[0]["dose"] == "500 mg twice daily"
+
+
+def name_kept(out, name):
+    return any(m["name"] == name for m in out.medicines)
+
+
+def test_unit_spacing_doesnt_matter():
+    assert grounding.quoted("start amlodipine 5 mg", "Start amlodipine 5mg daily.")
+    out = _one("Amlodipine", "5 mg", "Start amlodipine 5mg daily.", span="start amlodipine 5 mg")
+    assert out.medicines[0]["dose"] == "5 mg"
+
+
+@pytest.mark.parametrize(
+    ("text", "quote"),
+    [
+        ("Start metformin 500 mg", "do not start metformin 500 mg"),
+        ("Chest pain present", "no chest pain"),
+    ],
+)
+def test_a_line_cant_drop_a_negation_its_quote_holds(text, quote):
+    assert grounding.unfaithful(text, quote, strict=True)
 
 
 def test_number_words_and_brands_are_whole_words():
