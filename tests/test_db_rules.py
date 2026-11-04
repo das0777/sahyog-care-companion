@@ -125,3 +125,15 @@ def test_unsigned_draft_can_change(conn):
         text("UPDATE clinical_note SET soap_json=jsonb_build_object('a', 1) WHERE note_id=:id"),
         {"id": note_id},
     )
+
+
+def test_capacity_cannot_drop_below_a_booked_token(conn):
+    slot_id, capacity = _first_slot(conn)
+    _book(conn, slot_id, capacity, "k-top")
+    sp = conn.begin_nested()
+    with pytest.raises(DBAPIError, match="below booked token"):
+        conn.execute(
+            text("UPDATE slot SET capacity = :c WHERE slot_id = :s"),
+            {"c": capacity - 1, "s": slot_id},
+        )
+    sp.rollback()

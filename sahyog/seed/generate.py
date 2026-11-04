@@ -175,7 +175,8 @@ def _patients(rng: random.Random, fake: Faker, n: int) -> list[dict]:
                 "name": fake.name(),
                 # From rng, not Faker: Faker goes via local time, so dates moved with the time zone
                 "dob": DOB_FROM + timedelta(days=rng.randrange(DOB_SPAN_DAYS)),
-                # +91 55 is not an Indian mobile range, so no real person can ever be texted
+                # +91 55 is outside India's mobile ranges, but it can match a real landline,
+                # so nothing may dial or text a patient with synthetic=true
                 "phone": f"+91 55{rng.randrange(10**8):08d}",
                 "language": rng.choices(["en", "hi", "mr"], [4, 4, 2])[0],
                 "synthetic": True,

@@ -81,9 +81,32 @@ SAFETY_RULES = [
     BEFORE INSERT OR UPDATE OF token_no, slot_id ON appointment
     FOR EACH ROW EXECUTE FUNCTION check_token_within_capacity()
     """,
+    # The same rule from the other side: a block's capacity can't drop below a booked token
+    """
+    CREATE FUNCTION check_capacity_covers_tokens() RETURNS trigger AS $$
+    DECLARE
+        top integer;
+    BEGIN
+        SELECT max(token_no) INTO top FROM appointment
+        WHERE slot_id = NEW.slot_id AND status <> 'cancelled';
+        IF top > NEW.capacity THEN
+            RAISE EXCEPTION 'capacity % is below booked token % in slot %', NEW.capacity, top,
+                NEW.slot_id USING ERRCODE = 'check_violation';
+        END IF;
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql
+    """,
+    """
+    CREATE TRIGGER slot_capacity_covers_tokens
+    BEFORE UPDATE OF capacity ON slot
+    FOR EACH ROW EXECUTE FUNCTION check_capacity_covers_tokens()
+    """,
 ]
 
 DROP_SAFETY_RULES = [
+    "DROP TRIGGER IF EXISTS slot_capacity_covers_tokens ON slot",
+    "DROP FUNCTION IF EXISTS check_capacity_covers_tokens()",
     "DROP TRIGGER IF EXISTS appointment_token_within_capacity ON appointment",
     "DROP FUNCTION IF EXISTS check_token_within_capacity()",
     "DROP TRIGGER IF EXISTS clinical_note_signed_immutable ON clinical_note",

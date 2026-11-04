@@ -72,10 +72,13 @@ def test_expired_consents_seeded():
 
 
 def test_phones_are_outside_mobile_ranges():
+    """Indian mobile numbers start with 6 to 9. This doesn't make the numbers undiallable: +91 55
+    can match a landline. The rule that protects people is that no adapter contacts a synthetic
+    patient (see docs/data-contracts/patient.md)."""
     _run()
     with get_sessionmaker()() as session:
-        phones = session.scalars(text("SELECT phone FROM patient")).all()
-    assert phones and all(p.startswith("+91 55") for p in phones)
+        rows = session.execute(text("SELECT phone, synthetic FROM patient")).all()
+    assert rows and all(r.phone.startswith("+91 55") and r.synthetic for r in rows)
 
 
 def test_seed_keeps_audit_history(database):
