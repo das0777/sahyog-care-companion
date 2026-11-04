@@ -105,3 +105,37 @@ def test_devanagari_name_parts_never_cut_into_other_words(scrubber, name_local, 
     """From the S2 review: name parts were removed as substrings, damaging symptom words."""
     p = KnownIdentity("Test Patient", "+91 5500000000", name_local=name_local)
     assert kept in scrubber.scrub(sentence, patient=p, today=TODAY).text
+
+
+@pytest.mark.parametrize(
+    ("name_local", "sentence", "name_part"),
+    [
+        ("रवि कुलकर्णी", "रवि को सीने में दर्द है", "रवि"),
+        ("अमित सेन", "सेन को बुखार है", "सेन"),
+        ("रवि कुलकर्णी", "मरीज़ का नाम रवि।", "रवि"),
+    ],
+)
+def test_a_short_devanagari_name_on_its_own_is_removed(scrubber, name_local, sentence, name_part):
+    """From the S2 re-review: a length rule had let 3-letter names like रवि through."""
+    p = KnownIdentity("Test Patient", "+91 5500000000", name_local=name_local)
+    assert name_part not in scrubber.scrub(sentence, patient=p, today=TODAY).text
+
+
+def test_every_seeded_devanagari_name_is_removed(scrubber):
+    """Across the whole seed, not hand-picked names: each patient's Devanagari name, in full and
+    each part on its own (except parts that are everyday words), never leaves."""
+    from sqlalchemy import select
+
+    from sahyog.db import get_sessionmaker
+    from sahyog.models import Patient
+    from sahyog.safety.deid import DEVANAGARI_WORD_NAMES
+
+    with get_sessionmaker()() as session:
+        patients = session.scalars(select(Patient)).all()
+    assert patients
+    for patient in patients:
+        known = KnownIdentity.from_patient(patient)
+        parts = [w for w in patient.name_local.split() if w not in DEVANAGARI_WORD_NAMES]
+        for form in [patient.name_local, *parts]:
+            out = scrubber.scrub(f"{form} को बुखार है।", patient=known, today=TODAY).text
+            assert form not in out and "बुखार" in out, (patient.patient_id, form, out)
