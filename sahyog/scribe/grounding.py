@@ -8,8 +8,6 @@ or a number in the plan that was never said is replaced by a gap.
 import re
 from dataclasses import dataclass, field
 
-from rapidfuzz import fuzz
-
 from sahyog.safety.text import normalise
 
 QUOTE_MATCH = 90
@@ -82,8 +80,13 @@ def doctors_words(turns: list[Turn]) -> str:
 
 
 def quoted(quote: str, source: str, threshold: int = QUOTE_MATCH) -> bool:
-    q = normalise(quote).strip(" .,")
-    return bool(q) and fuzz.partial_ratio(q, normalise(source)) >= threshold
+    """The quote must be the doctor's words exactly, after normalising case and spacing. From the
+    S5 re-review: a fuzzy match let "non diabetic" stand for "known diabetic" and "stop" for
+    "start". `threshold` is kept for callers and no longer loosens the match."""
+    q = re.sub(r"[^\w\s]", " ", normalise(quote))
+    q = " ".join(q.split())
+    s = " ".join(re.sub(r"[^\w\s]", " ", normalise(source)).split())
+    return bool(q) and re.search(rf"(?<!\w){re.escape(q)}(?!\w)", s) is not None
 
 
 @dataclass
@@ -96,9 +99,16 @@ class GroundedMeds:
 # Words before a medicine that mean it isn't being prescribed ("do not give metformin")
 _NEGATION = re.compile(
     r"\b(no|not|don't|dont|do not|never|stop|stopped|discontinue|discontinued|avoid|hold|without"
-    r"|band|mat|nahi|nahin)\b[^.?!;]{0,25}$"
+    r"|band|mat|nahi|nahin)\b(?!\s+(change|relief|improvement|better|response))"
+)
+# After the name: "metformin 500 mg is not needed anymore", "warfarin should be avoided"
+_NEGATED_AFTER = re.compile(
+    r"\b(not needed|not required|no longer|not to be|should be avoided|avoid|to be stopped|stop it"
+    r"|stopped|discontinued?|on hold|withheld|band kar|band karo|nahi lena)\b"
 )
 _SENTENCE_END = re.compile(r"[.?!;\n]")
+# Where what's said about one medicine ends: a new clause, or the next medicine
+_CLAUSE = re.compile(r",|\band\b|\bthen\b|\bplus\b|\balso\b|\bbut\b")
 # Dose words that are units, not route or frequency
 _UNITS = {"mg", "mcg", "g", "ml", "iu", "unit", "units", "milligram", "milligrams", "microgram"}
 
@@ -110,15 +120,23 @@ def _windows(name: str, doctor: str) -> list[str]:
     out = []
     for m in re.finditer(rf"(?<![a-z]){re.escape(normalise(name))}(?![a-z])", said):
         before = said[max(0, m.start() - 40) : m.start()]
-        before = _SENTENCE_END.split(before)[-1]
-        if _NEGATION.search(before):
+        # Only the words in the same clause count: "no change, continue metformin" is a
+        # prescription, and so is "stop amlodipine and start telmisartan" for telmisartan
+        clause = _CLAUSE.split(_SENTENCE_END.split(before)[-1])[-1]
+        if _NEGATION.search(clause):
             continue
         rest = said[m.end() :]
         end = _SENTENCE_END.search(rest)
         window = rest[: end.start() if end else len(rest)]
-        nxt = [re.search(rf"(?<![a-z]){w}(?![a-z])", window) for w in KNOWN_MOLECULES]
-        cut = min((x.start() for x in nxt if x), default=len(window))
-        out.append(window[:cut])
+        stops = [x.start() for x in _DRUG_SHAPE.finditer(window)]
+        stops += [
+            x.start() for w in KNOWN_MOLECULES for x in re.finditer(rf"(?<![a-z]){w}", window)
+        ]
+        stops += [x.start() for x in _CLAUSE.finditer(window)]
+        window = window[: min(stops, default=len(window))]
+        if _NEGATED_AFTER.search(rest[: end.start() if end else len(rest)]):
+            continue
+        out.append(window)
     return out
 
 
@@ -184,10 +202,13 @@ def _is_class(name: str) -> bool:
     return any(re.search(rf"\b{re.escape(c)}\b", singular) for c in DRUG_CLASSES)
 
 
-NUMBER_WORDS = (
-    "one two three four five six seven eight nine ten eleven twelve fifteen twenty twenty-five "
-    "thirty forty fifty sixty seventy eighty ninety hundred thousand half"
-).split()
+_NUMBER_WORD = re.compile(
+    r"\b(?:(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)(?:-(?:one|two|three|four|five"
+    r"|six|seven|eight|nine))?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve"
+    r"|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|hundred|thousand|half)\b"
+)
+_NEGATING = re.compile(r"\b(no|non|not|never|denies|denied|without|negative|absent|nahi)\b")
+_BRAND_BEFORE_DOSE = re.compile(r"\b([a-z]{3,})\s+\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml|iu|units?)?\b")
 _DRUG_SHAPE = re.compile(
     r"\b\w+(?:pril|sartan|statin|olol|xaban|parin|dipine|prazole|mycin|cillin|floxacin|cycline"
     r"|gliptin|glitazone|formin|sprin)\b"
@@ -204,9 +225,13 @@ def unfaithful(text: str, quote: str, *, strict: bool) -> list[str]:
         if not re.search(rf"(?<![\d.]){re.escape(n)}(?![\d])", q)
     ]
     extra += [
-        w for w in re.findall(r"[a-z-]+", normalise(text)) if w in NUMBER_WORDS and w not in q
+        w for w in _NUMBER_WORD.findall(normalise(text)) if not re.search(rf"\b{re.escape(w)}\b", q)
     ]
+    # A negation the quote doesn't hold flips the meaning ("Non diabetic" for "known diabetic")
+    extra += [w for w in _NEGATING.findall(normalise(text)) if not re.search(rf"\b{w}\b", q)]
     if strict:
+        # A name right before a dose ("Glycomet 500 mg", "dolo 650") must be in the quote
+        extra += [w for w in _BRAND_BEFORE_DOSE.findall(normalise(text)) if w not in q]
         lowered = normalise(text)
         extra += [w for w in _DRUG_SHAPE.findall(lowered) if w not in q]
         extra += [w for w in lowered.split() if w.strip(".,") in KNOWN_MOLECULES and w not in q]

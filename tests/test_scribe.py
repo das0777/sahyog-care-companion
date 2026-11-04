@@ -425,9 +425,7 @@ def test_a_prompt_never_shares_five_words_with_an_eval_case():
 
 
 def _one(name, dose, doctor, span=None):
-    out = grounding.ground_medicines(
-        [{"name": name, "dose": dose, "span": span or doctor[:30]}], doctor
-    )
+    out = grounding.ground_medicines([{"name": name, "dose": dose, "span": span or doctor}], doctor)
     return out
 
 
@@ -493,3 +491,56 @@ def test_editing_medicines_doesnt_clear_an_open_gap():
     state = {"gaps": [{"text": "statin [molecule and dose not stated]"}], "medicines": []}
     edits = {"medicines": [{"name": "Metformin", "dose": "500 mg"}]}
     assert unresolved(state, edits) == ["statin [molecule and dose not stated]"]
+
+
+# ---- from the S5 re-review ---------------------------------------------------------------------
+
+DICTATION = "50 year old man, a known diabetic. Continue metformin 500 mg twice daily."
+
+
+def test_a_quote_must_be_the_doctors_exact_words():
+    assert grounding.quoted("known diabetic", DICTATION)
+    assert not grounding.quoted("non diabetic", DICTATION)
+    assert not grounding.quoted("stop metformin", "Please start metformin 500 mg.")
+
+
+def test_a_line_cant_borrow_a_number_or_add_a_negation():
+    assert grounding.unfaithful(
+        "Continue metformin 50 mg", "Continue metformin 500 mg", strict=True
+    )
+    assert grounding.unfaithful("Non diabetic", "a known diabetic", strict=False)
+    assert grounding.unfaithful("Patient denies chest pain", "patient has chest pain", strict=False)
+
+
+def test_a_dose_window_stops_at_an_unlisted_drug_or_a_new_clause():
+    out = _one("Amlodipine", "10 mg", "Start amlodipine 5 mg and cilnidipine 10 mg.")
+    assert out.medicines[0]["dose_gap"]
+
+
+@pytest.mark.parametrize(
+    "doctor", ["Metformin 500 mg is not needed anymore.", "Warfarin 5 mg should be avoided."]
+)
+def test_a_medicine_negated_after_its_name_is_not_prescribed(doctor):
+    name = "Warfarin" if "Warfarin" in doctor else "Metformin"
+    assert not _one(name, "500 mg" if name == "Metformin" else "5 mg", doctor).medicines
+
+
+@pytest.mark.parametrize(
+    ("name", "dose", "doctor"),
+    [
+        ("Metformin", "500 mg", "No change, continue metformin 500 mg."),
+        ("Paracetamol", "650 mg", "If no relief, take paracetamol 650 mg."),
+        ("Telmisartan", "40 mg", "Stop amlodipine and start telmisartan 40 mg."),
+    ],
+)
+def test_a_negation_elsewhere_in_the_sentence_doesnt_drop_a_prescription(name, dose, doctor):
+    out = _one(name, dose, doctor)
+    assert out.medicines and out.medicines[0]["dose"] == dose
+
+
+def test_number_words_and_brands_are_whole_words():
+    assert not grounding.unfaithful("seventy kg", "weight seventy kg", strict=False)
+    assert grounding.unfaithful("seven days", "for seventy days", strict=False)
+    assert grounding.unfaithful("forty-five mg", "as advised", strict=False)
+    assert grounding.unfaithful("Glycomet 500 mg", "metformin 500 mg", strict=True)
+    assert grounding.unfaithful("take dolo 650", "take paracetamol 650", strict=True)
