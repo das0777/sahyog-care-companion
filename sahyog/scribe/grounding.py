@@ -99,11 +99,18 @@ class GroundedMeds:
 # Words before a medicine that mean it isn't being prescribed ("do not give metformin")
 # Any negation in a medicine's sentence: the doctor confirms, the code doesn't guess (from the S5
 # re-review: phrase lists before and after the name kept missing forms like "do not take it")
-_NEGATION = re.compile(
-    r"\b(no|not|don't|dont|do not|never|stop|stopped|discontinue|discontinued|avoid|avoided"
-    r"|hold|without|no longer|band|mat|nahi|nahin)\b|n't\b"
+# One list for both checks, with inflected forms (from the S5 re-review 3: the medicine check and
+# the SOAP-line check disagreed, so "continue" could stand for "discontinue")
+NEGATION_WORDS = (
+    r"no|non|not|never|no longer|don't|dont|do not|deny|denies|denied|without|negative|absent"
+    r"|avoid|avoids|avoided|stop|stops|stopped|stopping|discontinue|discontinues|discontinued"
+    r"|discontinuing|hold|holds|held|holding|withhold|withholds|withheld|cease|ceases|ceased"
+    r"|skip|skips|skipped|omit|omits|omitted|omitting|withdraw|withdraws|withdrew|withdrawn"
+    r"|withdrawing|pause|pauses|paused|pausing|band|mat|nahi|nahin"
 )
-_SENTENCE_END = re.compile(r"[.?!;\n]")
+_NEGATION = re.compile(rf"\b(?:{NEGATION_WORDS})\b|n't\b")
+# A full stop ends a sentence; the point in "2.5 mg" doesn't
+_SENTENCE_END = re.compile(r"(?<!\d)\.|\.(?!\d)|[?!;\n]")
 # Where what's said about one medicine ends: a new clause or the next medicine. Not a comma:
 # "metformin 500 mg, twice daily" is one instruction
 _CLAUSE = re.compile(r"\band\b|\bthen\b|\bplus\b|\balso\b|\bbut\b")
@@ -134,6 +141,17 @@ def _windows(name: str, doctor: str) -> tuple[list[str], bool]:
             x.start() for w in KNOWN_MOLECULES for x in re.finditer(rf"(?<![a-z]){w}", window)
         ]
         stops += [x.start() for x in _CLAUSE.finditer(window)]
+        # Only the first dose after the name is this medicine's: "amlodipine 5 mg, Telma 40 mg"
+        numbers = list(re.finditer(r"\d+(?:\.\d+)?", window))
+        stops += [numbers[1].start()] if len(numbers) > 1 else []
+        # ...and a dose that sits in front of another name is that name's, even when it's the
+        # only number: "Continue amlodipine, Telma 40 mg" and "Give 5 mg amlodipine, 40 mg telma"
+        stops += [x.start() for x in _BRAND_BEFORE_DOSE.finditer(window)]
+        stops += [
+            x.start()
+            for x in _DOSE_BEFORE_NAME.finditer(window)
+            if x.group(1) not in _NOT_NAMES
+        ]
         out.append(window[: min(stops, default=len(window))])
     return out, negated
 
@@ -214,10 +232,16 @@ _NUMBER_WORD = re.compile(
     r"|six|seven|eight|nine))?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve"
     r"|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|hundred|thousand|half)\b"
 )
-_NEGATING = re.compile(
-    r"\b(no|non|not|never|denies|denied|without|negative|absent|nahi|avoid|stop)\b"
-)
+_NEGATING = _NEGATION  # the same list as the medicine check
 _BRAND_BEFORE_DOSE = re.compile(r"\b([a-z]{3,})\s+\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml|iu|units?)?\b")
+# A dose followed by a word: a name, unless the word is a route, frequency or unit (a gap, if wrong)
+_DOSE_BEFORE_NAME = re.compile(r"\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml|iu|units?)?\s+([a-z]{3,})\b")
+_NOT_NAMES = frozenset(
+    "twice thrice once daily nightly weekly hourly times time day days week weeks month months "
+    "morning noon evening night bedtime at for with after before on in as and or the then oral "
+    "orally tab tabs tablet tablets capsule capsules drop drops sos prn stat every needed if when "
+    "until till to per of is apply inhale local topical syrup cream sachet units unit".split()
+)
 _DRUG_SHAPE = re.compile(
     r"\b\w+(?:pril|sartan|statin|olol|xaban|parin|dipine|prazole|mycin|cillin|floxacin|cycline"
     r"|gliptin|glitazone|formin|sprin)\b"
@@ -242,7 +266,7 @@ def unfaithful(text: str, quote: str, *, strict: bool) -> list[str]:
     said_text = normalise(text)
     extra += [
         f"dropped '{w}'"
-        for w in _NEGATING.findall(q) + re.findall(r"\bdo not\b|n't\b", q)
+        for w in _NEGATING.findall(q)
         if not re.search(rf"\b{re.escape(w)}\b" if w[0].isalpha() else re.escape(w), said_text)
     ]
     if strict:

@@ -583,3 +583,106 @@ def test_number_words_and_brands_are_whole_words():
     assert grounding.unfaithful("forty-five mg", "as advised", strict=False)
     assert grounding.unfaithful("Glycomet 500 mg", "metformin 500 mg", strict=True)
     assert grounding.unfaithful("take dolo 650", "take paracetamol 650", strict=True)
+
+
+# ---- from the S5 re-review 3 -------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "doctor", ["Start amlodipine 5 mg, Telma 40 mg at night.", "Amlodipine 5 mg, glycomet 500 mg."]
+)
+def test_a_dose_cant_come_from_the_next_drug_in_the_sentence(doctor):
+    assert _one("Amlodipine", "40 mg" if "40" in doctor else "500 mg", doctor).medicines[0][
+        "dose_gap"
+    ]
+    assert _one("Amlodipine", "5 mg", doctor).medicines[0]["dose"] == "5 mg"
+
+
+@pytest.mark.parametrize(
+    ("text", "quote"),
+    [
+        ("Continue metformin 500 mg", "discontinue metformin 500 mg"),
+        ("Aspirin continued", "aspirin stopped"),
+        ("Give warfarin 5 mg", "hold warfarin 5 mg"),
+    ],
+)
+def test_a_line_cant_reverse_the_doctor(text, quote):
+    assert grounding.unfaithful(text, quote, strict=True)
+
+
+@pytest.mark.parametrize(
+    "doctor",
+    [
+        "Withhold warfarin 5 mg before surgery.",
+        "Metformin 500 mg, cease it.",
+        "Skip aspirin 75 mg for now.",
+    ],
+)
+def test_withhold_cease_and_skip_make_the_doctor_confirm(doctor):
+    name = next(n for n in ("Warfarin", "Metformin", "Aspirin") if n.lower() in doctor.lower())
+    out = _one(name, "5 mg", doctor)
+    assert not out.medicines and out.gaps[0]["term"] == name
+
+
+def test_a_decimal_dose_isnt_split_at_its_point():
+    out = _one("Amlodipine", "2.5 mg once daily", "Start amlodipine 2.5 mg once daily.")
+    assert out.medicines[0]["dose"] == "2.5 mg once daily"
+
+
+# ---- from the S5 re-review 4 -------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("doctor", "name", "dose"),
+    [
+        # The medicine has no dose of its own; the next drug's dose comes after its name
+        ("Continue amlodipine, Telma 40 mg at night.", "Amlodipine", "40 mg"),
+        # The next drug's dose comes before its name
+        ("Give 5 mg amlodipine, 40 mg telma at night.", "Amlodipine", "40 mg"),
+        ("Continue amlodipine, 40 mg telma at night.", "Amlodipine", "40 mg"),
+        # The doctor's own dose sits in front of the name, so it isn't beside the medicine
+        ("Give 5 mg amlodipine, 40 mg telma at night.", "Amlodipine", "5 mg"),
+    ],
+)
+def test_a_dose_cant_come_from_the_next_drug_when_the_medicine_has_none(doctor, name, dose):
+    out = _one(name, dose, doctor)
+    assert out.medicines[0]["dose"] == "" and out.medicines[0]["dose_gap"]
+
+
+@pytest.mark.parametrize(
+    ("doctor", "dose"),
+    [
+        ("Amlodipine 5 mg twice daily, Telma 40 mg at night.", "5 mg twice daily"),
+        ("Start amlodipine 5 mg oral daily.", "5 mg"),
+    ],
+)
+def test_a_medicines_own_dose_is_still_kept(doctor, dose):
+    out = _one("Amlodipine", dose, doctor)
+    assert out.medicines and out.medicines[0]["dose"] == dose
+
+
+@pytest.mark.parametrize(
+    "doctor",
+    [
+        "Omit metformin 500 mg on the day of the scan.",
+        "Pause aspirin 75 mg for a week.",
+        "Withdraw warfarin 5 mg from tonight.",
+        "Metformin 500 mg, omitted this week.",
+    ],
+)
+def test_omit_withdraw_and_pause_make_the_doctor_confirm(doctor):
+    name = next(n for n in ("Warfarin", "Metformin", "Aspirin") if n.lower() in doctor.lower())
+    out = _one(name, "500 mg" if "Metformin" in name else "75 mg", doctor)
+    assert not out.medicines and out.gaps[0]["term"] == name
+
+
+@pytest.mark.parametrize(
+    ("text", "quote"),
+    [
+        ("Give metformin 500 mg", "omit metformin 500 mg"),
+        ("Start aspirin 75 mg", "pause aspirin 75 mg"),
+        ("Continue warfarin 5 mg", "withdraw warfarin 5 mg"),
+    ],
+)
+def test_a_line_cant_reverse_an_omit_pause_or_withdraw(text, quote):
+    assert grounding.unfaithful(text, quote, strict=True)
