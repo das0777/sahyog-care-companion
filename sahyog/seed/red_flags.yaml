@@ -1,0 +1,383 @@
+# Red-flag rules for the W1 gate. Starter list, NOT clinical guidance: reviewed_by stays null
+# until a Sahyog clinician signs it off. Changes go through pull requests like code.
+#
+# concepts  fire on their own. Each synonym is matched on word windows. Synonyms of 7+ characters
+#           are typo-tolerant and may skip one inserted word; shorter ones must match exactly,
+#           because fuzzy matching on short words misfires ("fits" vs "fit"). A leading "=" forces
+#           an exact match for phrases one letter away from everyday words ("marna chahta" vs
+#           "karna chahta", I want to do).
+# signals   never fire alone; combinations use them.
+# modifiers come from the text (age, conditions) or the patient profile.
+# combos    fire when every group in `all_of` has a match and, if `any_modifier` is set,
+#           at least one of those modifiers holds.
+
+version: 2026-10-30.3
+reviewed_by: null
+
+global:
+  concepts:
+    - id: chest_pain
+      label: Chest pain or pressure
+      synonyms:
+        - chest pain
+        - pain in chest
+        - pain in my chest
+        - chest pressure
+        - crushing chest
+        - tight chest
+        - chest tightness
+        - heaviness in chest
+        - clutching chest
+        - holding chest
+        - severe chest discomfort
+        - unbearable chest pain
+        - dil mein dard
+        - dil me dard
+        - dil mein zor se dard
+        - dil mein tez dard
+        - दिल में दर्द
+        - seene mein dard
+        - seene me dard
+        - chhati mein dard
+        - chaati me dard
+        - सीने में दर्द
+        - सीने में तेज़ दर्द
+        - छाती में दर्द
+    - id: heart_attack
+      label: Heart attack described in words
+      synonyms:
+        - heart attack
+        - cardiac arrest
+        - dil ka daura
+        - दिल का दौरा
+        - हार्ट अटैक
+    - id: cannot_breathe
+      label: Severe breathing difficulty
+      synonyms:
+        - cannot breathe
+        - can't breathe
+        - cant breathe
+        - cant breath
+        - unable to breathe
+        - difficulty breathing
+        - struggling to breathe
+        - gasping for air
+        - saans nahi aa rahi
+        - saans nahi
+        - saans lene mein taklif
+        - saans lene me taklif
+        - saans phool rahi
+        - सांस नहीं आ रही
+        - सांस लेने में तकलीफ
+        - साँस लेने में तकलीफ
+    - id: unresponsive
+      label: Collapse, fainting or unresponsive
+      synonyms:
+        - unconscious
+        - fainted
+        - passed out
+        - collapsed
+        - not responding
+        - not waking up
+        - unresponsive
+        - behosh
+        - hosh nahi
+        - बेहोश
+        - होश नहीं
+    - id: seizure
+      label: Seizure
+      synonyms:
+        - seizure
+        - convulsion
+        - fitting
+        - having fits
+        - had a fit
+        - having a fit
+        - fit aaya
+        - daura pad raha
+        - daure pad rahe
+        - mirgi
+        - दौरा
+        - दौरे
+        - मिर्गी
+    - id: stroke
+      label: Stroke signs
+      synonyms:
+        - face drooping
+        - face is drooping
+        - drooping on one side
+        - slurred speech
+        - speech is slurred
+        - sudden weakness one side
+        - weakness on one side
+        - face went crooked
+        - face is crooked
+        - face suddenly crooked
+        - cannot lift arm
+        - cant speak properly
+        - cannot speak properly
+        - suddenly cannot speak
+        - arm is numb
+        - sudden numbness
+        - numb on one side
+        - cant lift arm
+        - unable to lift arm
+        - cannot move one side
+        - mooh tedha
+        - muh tedha
+        - मुंह टेढ़ा
+    - id: severe_bleeding
+      label: Heavy or uncontrolled bleeding
+      synonyms:
+        - heavy bleeding
+        - bleeding a lot
+        - bleeding heavily
+        - bleeding after delivery
+        - ulti mein khoon
+        - उल्टी में खून
+        - bleeding that will not stop
+        - bleeding wont stop
+        - vomiting blood
+        - blood in vomit
+        - coughing blood
+        - khoon ki ulti
+        - bahut khoon
+        - खून की उल्टी
+        - बहुत खून
+    - id: self_harm
+      label: Suicidal thoughts or self-harm
+      synonyms:
+        - suicidal
+        - want to die
+        - kill myself
+        - end my life
+        - hurt myself
+        - no reason to live
+        - cut my wrist
+        - cut her wrist
+        - cut his wrist
+        - cut her wrists
+        - cut my wrists
+        - slit wrist
+        - hang myself
+        - threatening to jump
+        - jump from the terrace
+        - jump off the building
+        - ending it all
+        - end it all
+        - no point living
+        - jeene ka mann nahi
+        - "=jeena nahi chahta"
+        - "=jeena nahi chahti"
+        - khud ko khatam
+        - "=marna chahta"
+        - "=marna chahti"
+        - आत्महत्या
+        - जीने का मन नहीं
+        - खुद को खत्म
+    - id: anaphylaxis
+      label: Severe allergic reaction
+      synonyms:
+        - severe allergic reaction
+        - throat swelling
+        - throat is closing
+        - lips swelling
+        - tongue swelling
+        - गले में सूजन
+    - id: thunderclap_headache
+      label: Sudden worst-ever headache
+      synonyms:
+        - worst headache of my life
+        - worst headache ever
+        - sudden severe headache
+        - zindagi ka sabse bura sir dard
+    - id: poisoning
+      label: Poisoning or overdose
+      synonyms:
+        - swallowed poison
+        - took poison
+        - overdose
+        - too many tablets
+        - too many pills
+        - took sleeping pills
+        - took many tablets
+        - took all tablets
+        - drank kerosene
+        - drank pesticide
+        - drank poison
+        - ate poison
+        - kerosene pee liya
+        - zeher kha liya
+        - ज़हर
+
+    - id: cyanosis
+      label: Lips or face turning blue or grey
+      synonyms:
+        - lips turning blue
+        - lips are blue
+        - lips look blue
+        - lips turning grey
+        - lips look grey
+        - lips are grey
+        - face turning blue
+        - honth neele
+    - id: envenomation
+      label: Snake bite or scorpion sting
+      synonyms:
+        - snake bit
+        - snake bite
+        - bitten by a snake
+        - scorpion sting
+        - stung by a scorpion
+        - saanp ne kata
+        - saap ne kata
+        - bichhu ne kata
+        - सांप ने काटा
+        - बिच्छू ने काटा
+    - id: non_blanching_rash
+      label: Rash that does not fade
+      synonyms:
+        - rash that does not fade
+        - rash does not fade
+        - non blanching rash
+        - purple rash
+        - purple spots
+
+  signals:
+    - id: arm_jaw_pain
+      synonyms: [left arm pain, ache left arm, pain in left arm, arm pain, ache in arm, jaw pain, pain in jaw, radiating to jaw, radiating to arm, baaju mein dard, haath mein dard, जबड़े में दर्द]
+    - id: chest_discomfort
+      synonyms: [chest discomfort, chest heaviness, chest burning, seene mein jalan, सीने में जलन]
+    - id: breathless
+      synonyms: [breathless, breathlessness, short of breath, shortness of breath, out of breath, saans phoolna, सांस फूलना]
+    - id: sweating
+      synonyms: [sweating, cold sweat, sweaty, pasina, paseena, पसीना]
+    - id: fever
+      synonyms: [fever, high temperature, temperature 102, temperature 103, bukhar, बुखार]
+    - id: stiff_neck
+      synonyms: [stiff neck, neck is stiff, neck is very stiff, neck stiffness, gardan akad, गर्दन अकड़]
+    - id: confusion
+      synonyms: [confused, confusion, not making sense, disoriented, drowsy, very sleepy, उलझन]
+    - id: vomiting
+      synonyms: [vomiting, vomited, throwing up, ulti, उल्टी]
+    - id: head_injury
+      synonyms: [head injury, hit his head, hit her head, hit my head, fell on head, sir par chot, सिर पर चोट]
+    - id: pregnant
+      synonyms: [pregnant, pregnancy, months pregnant, garbhvati, pet se, गर्भवती]
+    - id: bleeding
+      synonyms: [bleeding, blood coming, spotting, khoon, खून]
+    - id: severe_belly_pain
+      synonyms: [severe belly pain, severe stomach pain, severe abdominal pain, pet mein tez dard, पेट में तेज़ दर्द]
+    - id: not_feeding
+      synonyms: [not feeding, not drinking milk, refusing feeds, doodh nahi pee raha]
+    - id: infant
+      synonyms: [newborn, new born, weeks old, week old, shishu, नवजात]
+
+  modifiers:
+    - id: age_40_plus
+      kind: age_at_least
+      value: 40
+    - id: infant_under_3_months
+      kind: age_months_below
+      value: 3
+    - id: diabetic
+      kind: mention
+      synonyms: [diabetic, diabetes, sugar patient, sugar ka mareez, मधुमेह]
+    - id: hypertension
+      kind: mention
+      synonyms: [high bp, high blood pressure, hypertension, bp patient, bp ka mareez]
+    - id: smoker
+      kind: mention
+      synonyms: [smoker, i smoke, cigarette]
+
+  combos:
+    - id: cardiac_pattern
+      label: Possible heart attack (arm or jaw pain with breathlessness or sweating)
+      all_of: [[arm_jaw_pain, chest_discomfort], [breathless, sweating]]
+      any_modifier: [age_40_plus, diabetic, hypertension, smoker]
+    - id: chest_radiating
+      label: Chest discomfort spreading to the arm or jaw
+      all_of: [[chest_discomfort, chest_pain], [arm_jaw_pain]]
+    - id: chest_with_breathlessness
+      label: Chest discomfort with breathlessness
+      all_of: [[chest_discomfort], [breathless, sweating]]
+    - id: meningitis_pattern
+      label: Fever with stiff neck
+      all_of: [[fever], [stiff_neck]]
+    - id: head_injury_pattern
+      label: Head injury with vomiting or confusion
+      all_of: [[head_injury], [vomiting, confusion]]
+    - id: pregnancy_bleeding
+      label: Bleeding or severe pain in pregnancy
+      all_of: [[pregnant], [bleeding, severe_belly_pain]]
+    - id: newborn_fever
+      label: Fever or not feeding in a newborn
+      all_of: [[infant], [fever, not_feeding]]
+    - id: young_infant_fever
+      label: Fever or not feeding under 3 months of age
+      all_of: [[fever, not_feeding]]
+      any_modifier: [infant_under_3_months]
+    - id: sepsis_pattern
+      label: Fever with confusion
+      all_of: [[fever], [confusion]]
+
+# Specialty-specific concepts (from the S0 starter phrases), keyed by specialty_id
+specific:
+  SP03:
+    - {id: cardiac_spread, label: Pain spreading to left arm, synonyms: [pain spreading to left arm, pain going to left arm]}
+    - {id: palpitations_fainting, label: Palpitations with fainting, synonyms: [palpitations with fainting, heart racing and fainted]}
+  SP04:
+    - {id: black_stools, label: Black stools, synonyms: [black stools, black stool, kaala potty]}
+  SP05:
+    - {id: blue_lips, label: Lips turning blue, synonyms: [lips turning blue, lips are blue, honth neele]}
+  SP06:
+    - {id: sudden_vision_loss, label: Sudden vision loss, synonyms: [sudden vision loss, sudden loss of vision, suddenly cannot see]}
+  SP07:
+    - {id: no_urine, label: No urine for a day, synonyms: [no urine for a day, not passed urine since yesterday]}
+  SP08:
+    - {id: high_sugar_confused, label: Very high sugar and confused, synonyms: [very high sugar and confused, sugar very high and confused]}
+  SP09:
+    - {id: hypoglycaemia, label: Low sugar with sweating, synonyms: [sugar very low and sweating, sugar is very low, low sugar and shaking]}
+  SP11:
+    - {id: skin_peeling_fever, label: Skin peeling with fever, synonyms: [skin peeling with fever, skin coming off]}
+  SP12:
+    - {id: open_fracture, label: Bone sticking out, synonyms: [bone sticking out, bone is visible]}
+    - {id: leg_immobile_after_fall, label: Cannot move leg after fall, synonyms: [cannot move leg after fall, cannot move my leg after a fall]}
+  SP13:
+    - {id: throat_blocked, label: Swelling blocking throat, synonyms: [swelling blocking throat, cannot swallow saliva]}
+  SP14:
+    - {id: chemical_eye, label: Chemical in eye, synonyms: [chemical in eye, acid in eye]}
+  SP15:
+    - {id: pregnancy_bleeding_phrase, label: Bleeding in pregnancy, synonyms: [bleeding in pregnancy]}
+    - {id: baby_not_moving, label: Baby not moving, synonyms: [baby not moving, baby has stopped moving]}
+  SP16:
+    - {id: baby_not_feeding, label: Baby not feeding, synonyms: [baby not feeding]}
+    - {id: child_drowsy, label: Child very drowsy, synonyms: [child very drowsy, child is very drowsy, child not waking]}
+  SP17:
+    - {id: newborn_blue, label: Newborn turning blue, synonyms: [newborn turning blue, baby turning blue]}
+  SP18:
+    - {id: command_hallucinations, label: Voices telling to hurt, synonyms: [hearing voices telling me to hurt, voices telling me to hurt]}
+  SP19:
+    - {id: urinary_retention, label: Cannot pass urine, synonyms: [cannot pass urine, unable to pass urine, peshab nahi ho raha]}
+  SP21:
+    - {id: uncontrolled_bleeding, label: Bleeding that will not stop, synonyms: [bleeding that will not stop]}
+  SP22:
+    - {id: fever_stiff_neck_phrase, label: High fever with stiff neck, synonyms: [high fever with stiff neck]}
+  SP23:
+    - {id: jaundice_confused, label: Yellow eyes and confused, synonyms: [yellow eyes and confused]}
+  SP24:
+    - {id: acute_abdomen, label: Severe belly pain and hard belly, synonyms: [severe belly pain and hard belly, belly is hard and very painful]}
+  SP25:
+    - {id: head_injury_vomiting, label: Head injury and vomiting, synonyms: [head injury and vomiting]}
+  SP27:
+    - {id: cold_blue_leg, label: Cold blue leg, synonyms: [cold blue leg, leg is cold and blue]}
+  SP28:
+    - {id: large_burn, label: Large burn, synonyms: [large burn, big burn, burnt badly]}
+  SP30:
+    - {id: jaw_swelling_fever, label: Jaw swelling with fever, synonyms: [jaw swelling with fever]}
+  SP32:
+    - {id: long_lie, label: Fall and cannot get up, synonyms: [fall and cannot get up, fell and cannot get up]}
+  SP33:
+    - {id: lips_swelling_allergy, label: Lips swelling, synonyms: [lips swelling, lips are swelling]}
+  SP37:
+    - {id: apnoea_blue, label: Stops breathing in sleep and blue, synonyms: [stops breathing in sleep and blue]}

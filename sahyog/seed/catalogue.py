@@ -1,75 +1,73 @@
 """Reference catalogue for the synthetic seed.
 
-Red-flag phrases are a starter list for the S1 rule engine, not clinical guidance: every row has
-reviewed_by = None until a clinician signs it off (the spec's crosswalk reviewer mark).
+Red-flag rules (red_flags.yaml) are a starter list for the S1 rule engine, not clinical guidance:
+reviewed_by stays null until a clinician signs them off (the spec's crosswalk reviewer mark).
 """
 
-# Phrases that always mean emergency care, whatever specialty the symptoms point to
-GLOBAL_RED_FLAGS = [
-    "chest pain",
-    "crushing chest",
-    "can't breathe",
-    "cannot breathe",
-    "difficulty breathing",
-    "unconscious",
-    "fainted",
-    "seizure",
-    "fits",
-    "heavy bleeding",
-    "vomiting blood",
-    "blood in vomit",
-    "face drooping",
-    "slurred speech",
-    "sudden weakness one side",
-    "suicidal",
-    "want to die",
-    "severe allergic reaction",
-    "throat swelling",
-    "seene mein dard",
-    "saans nahi",
-    "behosh",
-]
+from functools import cache
+from pathlib import Path
 
-# (specialty_id, name, weight for doctor distribution, specialty-specific red-flag phrases)
-SPECIALTIES: list[tuple[str, str, int, list[str]]] = [
-    ("SP01", "General Medicine", 40, []),
-    ("SP02", "Family Medicine", 25, []),
-    ("SP03", "Cardiology", 20, ["pain spreading to left arm", "palpitations with fainting"]),
-    ("SP04", "Gastroenterology", 14, ["black stools", "vomiting blood"]),
-    ("SP05", "Pulmonology", 12, ["coughing blood", "lips turning blue"]),
-    ("SP06", "Neurology", 12, ["worst headache of my life", "sudden vision loss"]),
-    ("SP07", "Nephrology", 8, ["no urine for a day"]),
-    ("SP08", "Endocrinology", 8, ["very high sugar and confused"]),
-    ("SP09", "Diabetology", 14, ["sugar very low and sweating"]),
-    ("SP10", "Rheumatology", 6, []),
-    ("SP11", "Dermatology", 16, ["skin peeling with fever"]),
-    ("SP12", "Orthopaedics", 20, ["bone sticking out", "cannot move leg after fall"]),
-    ("SP13", "ENT", 14, ["swelling blocking throat"]),
-    ("SP14", "Ophthalmology", 14, ["sudden loss of vision", "chemical in eye"]),
-    ("SP15", "Obstetrics and Gynaecology", 22, ["bleeding in pregnancy", "baby not moving"]),
-    ("SP16", "Paediatrics", 22, ["baby not feeding", "child very drowsy"]),
-    ("SP17", "Neonatology", 4, ["newborn turning blue"]),
-    ("SP18", "Psychiatry", 10, ["hearing voices telling me to hurt"]),
-    ("SP19", "Urology", 8, ["cannot pass urine"]),
-    ("SP20", "Oncology", 8, []),
-    ("SP21", "Haematology", 4, ["bleeding that will not stop"]),
-    ("SP22", "Infectious Diseases", 6, ["high fever with stiff neck"]),
-    ("SP23", "Hepatology", 4, ["yellow eyes and confused"]),
-    ("SP24", "General Surgery", 16, ["severe belly pain and hard belly"]),
-    ("SP25", "Neurosurgery", 4, ["head injury and vomiting"]),
-    ("SP26", "Cardiothoracic Surgery", 3, []),
-    ("SP27", "Vascular Surgery", 3, ["cold blue leg"]),
-    ("SP28", "Plastic Surgery", 3, ["large burn"]),
-    ("SP29", "Paediatric Surgery", 3, []),
-    ("SP30", "Dentistry", 14, ["jaw swelling with fever"]),
-    ("SP31", "Physiotherapy", 10, []),
-    ("SP32", "Geriatrics", 6, ["fall and cannot get up"]),
-    ("SP33", "Allergy and Immunology", 4, ["lips swelling"]),
-    ("SP34", "Sports Medicine", 3, []),
-    ("SP35", "Pain Management", 3, []),
-    ("SP36", "Nutrition and Dietetics", 4, []),
-    ("SP37", "Sleep Medicine", 2, ["stops breathing in sleep and blue"]),
-    ("SP38", "Emergency Medicine", 6, []),
+import yaml
+
+RED_FLAGS_FILE = Path(__file__).with_name("red_flags.yaml")
+
+
+@cache
+def _red_flags() -> dict:
+    return yaml.safe_load(RED_FLAGS_FILE.read_text(encoding="utf-8"))
+
+
+def red_flag_rules_for(specialty_id: str) -> dict:
+    """The JSON stored in Specialty.red_flag_rules: global rules plus the specialty's own."""
+    rules = _red_flags()
+    return {
+        "version": str(rules["version"]),
+        "reviewed_by": rules["reviewed_by"],
+        "global": rules["global"],
+        "specific": rules["specific"].get(specialty_id, []),
+    }
+
+
+# (specialty_id, name, weight for doctor distribution); red flags live in red_flags.yaml
+SPECIALTIES: list[tuple[str, str, int]] = [
+    ("SP01", "General Medicine", 40),
+    ("SP02", "Family Medicine", 25),
+    ("SP03", "Cardiology", 20),
+    ("SP04", "Gastroenterology", 14),
+    ("SP05", "Pulmonology", 12),
+    ("SP06", "Neurology", 12),
+    ("SP07", "Nephrology", 8),
+    ("SP08", "Endocrinology", 8),
+    ("SP09", "Diabetology", 14),
+    ("SP10", "Rheumatology", 6),
+    ("SP11", "Dermatology", 16),
+    ("SP12", "Orthopaedics", 20),
+    ("SP13", "ENT", 14),
+    ("SP14", "Ophthalmology", 14),
+    ("SP15", "Obstetrics and Gynaecology", 22),
+    ("SP16", "Paediatrics", 22),
+    ("SP17", "Neonatology", 4),
+    ("SP18", "Psychiatry", 10),
+    ("SP19", "Urology", 8),
+    ("SP20", "Oncology", 8),
+    ("SP21", "Haematology", 4),
+    ("SP22", "Infectious Diseases", 6),
+    ("SP23", "Hepatology", 4),
+    ("SP24", "General Surgery", 16),
+    ("SP25", "Neurosurgery", 4),
+    ("SP26", "Cardiothoracic Surgery", 3),
+    ("SP27", "Vascular Surgery", 3),
+    ("SP28", "Plastic Surgery", 3),
+    ("SP29", "Paediatric Surgery", 3),
+    ("SP30", "Dentistry", 14),
+    ("SP31", "Physiotherapy", 10),
+    ("SP32", "Geriatrics", 6),
+    ("SP33", "Allergy and Immunology", 4),
+    ("SP34", "Sports Medicine", 3),
+    ("SP35", "Pain Management", 3),
+    ("SP36", "Nutrition and Dietetics", 4),
+    ("SP37", "Sleep Medicine", 2),
+    ("SP38", "Emergency Medicine", 6),
 ]
 
 # (clinic_id, name, city)

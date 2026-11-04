@@ -23,6 +23,64 @@ def _token(args: argparse.Namespace) -> None:
     print(issue_token(Role(args.role), args.id))
 
 
+def _redflag(args: argparse.Namespace) -> None:
+    from sahyog.safety.red_flags import RedFlagEngine
+
+    with get_sessionmaker()() as session:
+        engine = RedFlagEngine.from_db(session)
+    d = engine.check(args.text, age_years=args.age)
+    print(f"language   {d.language}")
+    print(f"decision   {'RED FLAG -> emergency desk' if d.red_flag else 'no red flag'}")
+    for f in d.fired:
+        print(f"rule       {f.rule_id} ({f.kind}): {f.label}")
+        print(f"  matched  {', '.join(f.matched)}")
+    print(f"rules      {d.rules_version}   ({d.elapsed_ms:.1f} ms)")
+
+
+def _scrub(args: argparse.Namespace) -> None:
+    from sahyog.models import Patient
+    from sahyog.safety.deid import KnownIdentity, Scrubber
+
+    patient = None
+    if args.patient:
+        with get_sessionmaker()() as session:
+            row = session.get(Patient, args.patient)
+            if row is None:
+                sys.exit(f"no patient {args.patient}")
+            patient = KnownIdentity.from_patient(row)
+    result = Scrubber().scrub(args.text, patient=patient)
+    print(f"scrubbed   {result.text}")
+    print(f"found      {result.counts or 'nothing'}")
+    # Local command only: the map is shown here for checking, never logged or sent anywhere
+    for placeholder, original in result.mapping.items():
+        print(f"  {placeholder:<12} = {original}")
+
+
+def _llm_smoke(_: argparse.Namespace) -> None:
+    import uuid
+
+    from sahyog.llm.gateway import build_gateway
+    from sahyog.llm.schemas import SpecialtyMatch
+
+    settings = get_settings()
+    if settings.llm_provider != "anthropic":
+        sys.exit("Set LLM_PROVIDER=anthropic and ANTHROPIC_API_KEY in .env, then rerun")
+    result = build_gateway(settings).complete(
+        "small",
+        system="Pick the medical specialty id for the symptoms. SP12 is Orthopaedics, "
+        "SP11 is Dermatology, SP01 is General Medicine. Reply only with the JSON asked for.",
+        prompt="Knee pain while climbing stairs for three months.",
+        schema=SpecialtyMatch,
+        trace_id=uuid.uuid4().hex,
+    )
+    r = result.record
+    print(result.output.model_dump())
+    print(
+        f"{r.provider}/{r.model}  in {r.input_tokens} out {r.output_tokens} tokens  "
+        f"${r.cost_usd:.6f}  attempts {[a.outcome for a in r.attempts]}"
+    )
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="sahyog")
     sub = parser.add_subparsers(required=True)
@@ -34,6 +92,19 @@ def main(argv: list[str] | None = None) -> None:
     p_token.add_argument("--role", required=True, choices=[r.value for r in Role])
     p_token.add_argument("--id", required=True, help="Actor id, e.g. P0001, D0001, DESK01")
     p_token.set_defaults(fn=_token)
+
+    p_flag = sub.add_parser("redflag", help="Run the red-flag gate on one message")
+    p_flag.add_argument("--text", required=True)
+    p_flag.add_argument("--age", type=int, default=None, help="Age from the patient profile")
+    p_flag.set_defaults(fn=_redflag)
+
+    p_scrub = sub.add_parser("scrub", help="Show what the egress scrubber sends out")
+    p_scrub.add_argument("--text", required=True)
+    p_scrub.add_argument("--patient", default=None, help="Patient id, e.g. P0001")
+    p_scrub.set_defaults(fn=_scrub)
+
+    p_smoke = sub.add_parser("llm-smoke", help="One real model call through the gateway")
+    p_smoke.set_defaults(fn=_llm_smoke)
 
     args = parser.parse_args(argv)
     args.fn(args)

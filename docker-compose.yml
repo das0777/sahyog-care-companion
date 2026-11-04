@@ -51,6 +51,9 @@ services:
       - ./migrations:/app/migrations
       - ./tests:/app/tests
       - ./alembic.ini:/app/alembic.ini
+      - ./pyproject.toml:/app/pyproject.toml:ro  # lint and test config stay current
+      - ./config:/app/config
+      - ./evals:/app/evals
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
