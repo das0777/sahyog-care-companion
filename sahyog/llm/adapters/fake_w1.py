@@ -52,4 +52,22 @@ def triage_script(request: ModelRequest) -> str:
                 "wants_diagnosis_or_dose": False,
             }
         )
+    if request.system.startswith("W2 grade"):
+        return json.dumps({"relevant": True})
+    if request.system.startswith("W2 answer"):
+        return _w2_answer(request.prompt)
     return "{}"
+
+
+def _w2_answer(prompt: str) -> str:
+    """Reads back the first excerpt line that shares a word with the question."""
+    excerpts, _, question = prompt.partition("</excerpts>")
+    words = set(re.findall(r"[a-z0-9]{3,}", question.lower())) - {"what", "was", "the", "question"}
+    for number, body in re.findall(r"\[(\d+)\][^\n]*\n(.*?)(?=\n\n\[|\Z)", excerpts, re.S):
+        for line in body.splitlines():
+            if words & set(re.findall(r"[a-z0-9]{3,}", line.lower())):
+                sentence = {"text": line.strip(), "excerpts": [int(number)]}
+                return json.dumps(
+                    {"found": True, "wants_diagnosis_or_dose": False, "sentences": [sentence]}
+                )
+    return json.dumps({"found": False, "wants_diagnosis_or_dose": False, "sentences": []})

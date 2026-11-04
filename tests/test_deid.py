@@ -72,3 +72,26 @@ def test_age_bands():
     assert age_band(date(2026, 1, 1), TODAY) == "under 1 year"
     assert age_band(date(1990, 10, 31), TODAY) == "30–39 years"
     assert age_band(date(1990, 10, 30), TODAY) == "30–39 years"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Fasting Blood Sugar 110 mg/dL 70-100",
+        "Total Cholesterol 277 mg/dL <200",
+        "Uric Acid 5.8 mg/dL 3.5-7.2",
+        "Platelet Count 3.36 lakh/cumm 1.5-4.5",
+        "Test Result Unit Reference",
+        "Discharge Summary",
+    ],
+)
+def test_report_wording_is_not_taken_for_a_name(scrubber, line):
+    text = f"BIOCHEMISTRY\n{line}\nEnd of page"
+    assert scrubber.scrub(text).text == text
+
+
+def test_a_name_in_a_report_narrative_still_goes(scrubber):
+    out = scrubber.scrub("Seen with her attending physician Phurba Lepcha today.").text
+    assert "Lepcha" not in out
+    out = scrubber.scrub("Consultant: Dr. Meera Nair\nHbA1c 7.2 %").text
+    assert "Nair" not in out and "HbA1c 7.2 %" in out

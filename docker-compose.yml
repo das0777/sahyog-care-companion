@@ -41,6 +41,16 @@ services:
       timeout: 3s
       retries: 20
 
+  # Downloads the embedding model once, so the API and worker never race to fetch 2 GB
+  model-init:
+    build: .
+    env_file: .env
+    command: python -m sahyog.ingest.embedding
+    volumes:
+      - ./sahyog:/app/sahyog
+      - models:/models
+    restart: "no"
+
   api:
     build: .
     env_file: .env
@@ -59,6 +69,7 @@ services:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
       minio: { condition: service_healthy }
+      model-init: { condition: service_completed_successfully }
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 5s
@@ -80,7 +91,7 @@ services:
       test: ["CMD", "test", "-f", "/tmp/worker-ready"]
       interval: 5s
       timeout: 5s
-      retries: 240  # the first start downloads the embedding model
+      retries: 60  # loading the model takes a little while
 
 volumes:
   pgdata:

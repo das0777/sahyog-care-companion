@@ -1,10 +1,13 @@
 import logging
+import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 
 from sahyog.api import desk, health, records, w1, w2
 from sahyog.auth import new_trace_id
+from sahyog.config import get_settings
+from sahyog.ingest.embedding import get_embedder
 from sahyog.storage import ensure_buckets
 
 log = logging.getLogger("sahyog")
@@ -12,6 +15,9 @@ log = logging.getLogger("sahyog")
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    if get_settings().embedder == "local":
+        # Load before the first question, without holding up startup
+        threading.Thread(target=get_embedder, daemon=True).start()
     try:
         ensure_buckets()
     except Exception:  # noqa: BLE001 - /health reports MinIO problems; startup must not crash
