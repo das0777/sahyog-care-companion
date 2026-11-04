@@ -16,6 +16,7 @@ function el(tag, attrs = {}, ...children) {
   return node;
 }
 
+const put = (node, ...kids) => node.replaceChildren(...kids.flat().filter((k) => k != null));
 const key = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now());
 
 async function api(path, { method = "GET", body, form, idem = false } = {}) {
@@ -87,7 +88,7 @@ function renderSignIn() {
     $("#who").hidden = false;
     ({ patient: renderPatient, caregiver: renderCaregiver, doctor: renderDoctor, desk: renderDesk })[role.value]();
   }, err));
-  app.replaceChildren(el("h1", {}, "Welcome"), form);
+  put(app, el("h1", {}, "Welcome"), form);
 }
 $("#sign-out").addEventListener("click", renderSignIn);
 
@@ -96,11 +97,11 @@ function tabs(items) {
   const pane = el("div", {});
   const show = (i) => {
     [...bar.children].forEach((b, n) => b.setAttribute("aria-selected", String(n === i)));
-    pane.replaceChildren();
+    put(pane);
     items[i][1](pane);
   };
   items.forEach(([label], i) => bar.append(el("button", { role: "tab", type: "button", onclick: () => show(i) }, label)));
-  app.replaceChildren(bar, pane);
+  put(app, bar, pane);
   show(0);
 }
 
@@ -119,7 +120,7 @@ function findDoctor(pane) {
     text, el("div", { class: "row" }, go), err);
   form.addEventListener("submit", guarded(go, async () => {
     if (!text.value.trim()) throw new Error("Please describe what's wrong first.");
-    out.replaceChildren(el("p", { class: "spin" }, "Checking…"));
+    put(out, el("p", { class: "spin" }, "Checking…"));
     triageReply(out, await api("/w1/triage", { method: "POST", idem: true, body: { text: text.value } }));
   }, err));
   pane.append(form, out);
@@ -128,9 +129,9 @@ function findDoctor(pane) {
 function triageReply(out, r) {
   const resume = (body) => api(`/w1/${r.thread_id}/resume`, { method: "POST", idem: true, body });
   if (r.status === "emergency") {
-    out.replaceChildren(el("div", { class: "alert emergency", role: "alert" }, r.message));
+    put(out, el("div", { class: "alert emergency", role: "alert" }, r.message));
   } else if (r.status === "handed_to_desk") {
-    out.replaceChildren(el("div", { class: "alert warn", role: "alert" }, r.message));
+    put(out, el("div", { class: "alert warn", role: "alert" }, r.message));
   } else if (r.status === "clarify") {
     const answer = el("input", { id: "answer" });
     const err = el("p", { class: "error", role: "alert" });
@@ -140,7 +141,7 @@ function triageReply(out, r) {
       if (!answer.value.trim()) throw new Error("Please type an answer.");
       triageReply(out, await resume({ answer: answer.value }));
     }, err));
-    out.replaceChildren(form);
+    put(out, form);
     answer.focus();
   } else if (r.status === "awaiting_choice") {
     const err = el("p", { class: "error", role: "alert" });
@@ -152,12 +153,12 @@ function triageReply(out, r) {
       b.addEventListener("click", guarded(b, async () => triageReply(out, await resume({ slot_id: c.slot_id })), err));
       return b;
     });
-    out.replaceChildren(el("div", { class: "card" },
+    put(out, el("div", { class: "card" },
       r.notice ? el("div", { class: "alert warn" }, r.notice) : null,
       el("h2", {}, `Suggested: ${r.specialty.name}`),
       el("p", { class: "muted small" }, "Choose a time block. You get a token number, not an exact minute."), list, err));
   } else if (r.status === "booked") {
-    out.replaceChildren(el("div", { class: "alert ok", role: "status" },
+    put(out, el("div", { class: "alert ok", role: "status" },
       el("strong", {}, `Token ${r.token_no}`), el("p", {}, r.message),
       r.sms_sent ? el("p", { class: "small" }, "A confirmation SMS has been queued (a stub in this demo).") : null));
   }
@@ -166,7 +167,7 @@ function triageReply(out, r) {
 async function appointments(pane) {
   pane.append(el("p", { class: "spin" }, "Loading…"));
   const rows = await api("/w1/appointments");
-  pane.replaceChildren(el("div", { class: "card" }, el("h2", {}, "My appointments"),
+  put(pane, el("div", { class: "card" }, el("h2", {}, "My appointments"),
     rows.length ? rows.map((a) => el("div", { class: "ticket" },
       el("strong", {}, `Token ${a.token_no} · ${a.doctor_name}`), " ",
       el("span", { class: "pill" }, a.status), el("br"),
@@ -183,7 +184,7 @@ function uploadCard(pane) {
   const list = el("div", { "aria-live": "polite" });
   const refresh = async () => {
     const docs = await api("/w2/documents");
-    list.replaceChildren(...(docs.length ? docs.map((d) => el("div", { class: "ticket" },
+    put(list, (docs.length ? docs.map((d) => el("div", { class: "ticket" },
       el("span", { class: `pill ${d.status}` }, d.status), " ",
       el("span", {}, `Report from ${when(d.uploaded_at)}`), el("br"),
       el("span", { class: "muted small" }, d.pages_total == null ? "Waiting to be read" :
@@ -221,7 +222,7 @@ function askCard(pane, patientId) {
     el("label", { for: "question" }, "Your question"), q, el("div", { class: "row" }, go), err, out);
   form.addEventListener("submit", guarded(go, async () => {
     if (!q.value.trim()) throw new Error("Please type a question.");
-    out.replaceChildren(el("p", { class: "spin" }, "Reading…"));
+    put(out, el("p", { class: "spin" }, "Reading…"));
     answerView(out, await api("/w2/ask", { method: "POST", body: { question: q.value, patient_id: patientId } }));
   }, err));
   pane.append(form);
@@ -229,10 +230,10 @@ function askCard(pane, patientId) {
 
 function answerView(out, r) {
   const style = { emergency: "emergency", handed_to_desk: "warn", blocked: "warn", refused: "warn", not_found: "info" }[r.status];
-  if (style) { out.replaceChildren(el("div", { class: `alert ${style}`, role: "alert" }, r.answer)); return; }
+  if (style) { put(out, el("div", { class: `alert ${style}`, role: "alert" }, r.answer)); return; }
   const lines = (r.sentences || []).map((s) => el("p", {}, s.text, " ",
     ...s.citations.map((c) => el("span", { class: "cite" }, `(report ${c.doc_id.slice(0, 8)}, page ${c.page}${c.source === "ocr" ? ", scan" : ""}) `))));
-  out.replaceChildren(el("div", { class: "alert info" }, lines),
+  put(out, el("div", { class: "alert info" }, lines),
     r.scan_warning ? el("div", { class: "alert warn" }, r.scan_warning) : null);
 }
 
@@ -246,14 +247,14 @@ function renderCaregiver() {
     el("label", { for: "patient" }, "Patient ID"), pid,
     el("p", { class: "muted small" }, "You can read them only while the patient's consent is valid. Each read is logged."),
     el("div", { class: "row" }, go));
-  form.addEventListener("submit", (e) => { e.preventDefault(); pane.replaceChildren(); askCard(pane, pid.value.trim()); });
-  app.replaceChildren(el("h1", {}, "Family access"), form, pane);
+  form.addEventListener("submit", (e) => { e.preventDefault(); put(pane); askCard(pane, pid.value.trim()); });
+  put(app, el("h1", {}, "Family access"), form, pane);
 }
 
 // ---- doctor ---------------------------------------------------------------------------------
 
 async function renderDoctor() {
-  app.replaceChildren(el("h1", {}, "Today's patients"), el("p", { class: "spin" }, "Loading…"));
+  put(app, el("h1", {}, "Today's patients"), el("p", { class: "spin" }, "Loading…"));
   const rows = await api("/w3/appointments");
   const err = el("p", { class: "error", role: "alert" });
   const list = rows.map((a) => {
@@ -266,7 +267,7 @@ async function renderDoctor() {
     }, err));
     return b;
   });
-  app.replaceChildren(el("h1", {}, "Your patients"),
+  put(app, el("h1", {}, "Your patients"),
     el("div", { class: "card" }, rows.length ? list : el("p", { class: "muted" }, "No booked patients. Book one as a patient first."), err));
 }
 
@@ -319,7 +320,7 @@ function renderDictate(encounterId, appt) {
     const { thread_id } = await api(`/w3/encounters/${encounterId}/transcript`, { method: "POST", body: { transcript: text.value } });
     await watch(thread_id);
   }, err));
-  app.replaceChildren(el("h1", {}, "Consultation"), form);
+  put(app, el("h1", {}, "Consultation"), form);
 }
 
 const STOCK = { in_stock: "In stock", low: "Low", out: "Out of stock", unknown: "Stock unknown" };
@@ -373,7 +374,7 @@ function renderReview(thread, d, appt) {
   sign.addEventListener("click", guarded(sign, async () => {
     const r = await api(`/w3/${thread}/resume`, { method: "POST", body: { decision: "sign", edits: edits() } });
     const note = await api(`/w3/notes/${r.note_id}`);
-    app.replaceChildren(el("h1", {}, "Signed"), el("div", { class: "alert ok", role: "status" },
+    put(app, el("h1", {}, "Signed"), el("div", { class: "alert ok", role: "status" },
       `Note saved for ${appt.patient_name}, version ${note.version}. It can't be changed now.`),
       el("div", { class: "card small" }, el("p", {}, `Review took ${Math.round(note.review_seconds)} seconds.`),
         el("p", { class: "muted" }, `Hash ${note.hash}`),
@@ -384,15 +385,18 @@ function renderReview(thread, d, appt) {
     const r = await api(`/w3/${thread}/resume`, { method: "POST", body: { decision: "reject", comments: comments.value } });
     renderReview(thread, r, appt);
   }, err));
-  app.replaceChildren(el("h1", {}, `Review: ${appt.patient_name}`),
+  put(app, el("h1", {}, `Review: ${appt.patient_name}`),
     d.flags.length ? el("div", { class: "alert warn" }, el("strong", {}, "Removed from the draft:"), el("ul", {}, d.flags.map((f) => el("li", {}, f)))) : null,
+    d.transcript ? el("div", { class: "card" }, el("h2", {}, "What was heard"),
+      el("div", { class: "alert warn small" }, "Read this first. Speech recognition can mishear in ways that change the meaning, and the draft trusts this text."),
+      el("p", {}, d.transcript)) : null,
     soapCard,
     el("div", { class: "card" }, el("h2", {}, "Medicines"),
       gapRows, meds.length ? meds.map(medRow) : gaps.length ? null : el("p", { class: "muted small" }, "None said.")),
     el("div", { class: "card" }, el("label", { for: "comments" }, "Comments, if you reject"), comments,
       el("div", { class: "row" }, sign, redo), err,
       el("p", { class: "muted small" }, "Nothing is saved until you sign.")),
-    d.transcript ? el("details", { class: "card" }, el("summary", {}, "Transcript"), el("p", { class: "small" }, d.transcript)) : null);
+    null);
 }
 
 // ---- front desk -----------------------------------------------------------------------------
@@ -405,10 +409,10 @@ const KINDS = { er: "Emergency", safety_unchecked: "Safety check didn't run", lo
 async function renderDesk() {
   const body = el("div", { class: "card" }, el("p", { class: "spin" }, "Loading…"));
   const refresh = el("button", { class: "secondary", type: "button", onclick: renderDesk }, "Refresh");
-  app.replaceChildren(el("div", { class: "row", style: "justify-content:space-between" }, el("h1", {}, "Front-desk queue"), refresh), body);
+  put(app, el("div", { class: "row", style: "justify-content:space-between" }, el("h1", {}, "Front-desk queue"), refresh), body);
   const rows = await api("/desk/queue");
-  if (!rows.length) { body.replaceChildren(el("p", { class: "muted" }, "Nothing waiting.")); return; }
-  body.replaceChildren(...rows.map(ticketRow));
+  if (!rows.length) { put(body, el("p", { class: "muted" }, "Nothing waiting.")); return; }
+  put(body, rows.map(ticketRow));
 }
 
 function age(sec) { return sec < 3600 ? `${Math.floor(sec / 60)} min` : `${Math.floor(sec / 3600)} h ${Math.floor((sec % 3600) / 60)} min`; }
