@@ -269,6 +269,15 @@ def test_a_family_members_report_is_held():
     for text in ["Patient Name: Priya Sharma", "Patient: P. Sharma", "Pt. Name: PRIYA SHARMA"]:
         assert check(text) is None, text
     assert check("Patient Name: Priya Shamra", "ocr") is None  # a scan's misread letters
+    # A surname that is also a stop word ("Date") still matches the patient
+    assert (
+        identity.mismatch(
+            [PageText(1, "Patient Name: Bakhshi Date Report Date: 02/03/2026", "ocr")],
+            name="Bakhshi Date",
+            abha_id="13-6027-9960-4880",
+        )
+        is None
+    )
 
 
 # ---- re-upload and retries -------------------------------------------------------------------

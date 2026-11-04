@@ -38,6 +38,12 @@ def mismatch(pages: list[PageText], *, name: str, abha_id: str) -> str | None:
         for same_line, next_line in _NAME_LINE.findall(normalise(page.text)):
             # The name may follow the label on the same line, or sit on the line below it
             raw = same_line if same_line.strip() else next_line
+            # The patient's full name first, before cutting at words like "date": a surname can
+            # be one of those words ("Bakhshi Date")
+            own = normalise(name)
+            least = OCR_WORD_SIMILARITY if page.source == "ocr" else WORD_SIMILARITY
+            if fuzz.ratio(raw.strip()[: len(own)], own) >= least:
+                continue
             printed = _NAME_STOP.split(raw)[0].strip(" .,")
             if len(printed) < 3:
                 continue
