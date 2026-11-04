@@ -21,6 +21,7 @@ from sahyog.config import get_settings
 from sahyog.db import get_sessionmaker
 from sahyog.evals.egress import build_payloads, detect
 from sahyog.evals.w1_paths import w1_paths
+from sahyog.evals.w2_ingest import w2_ingest
 from sahyog.llm.adapters.fake import FakeModel
 from sahyog.llm.gateway import ModelGateway, Prices, Route
 from sahyog.llm.schemas import Ack, SpecialtyMatch
@@ -49,6 +50,7 @@ class Check:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="sahyog.evals.run")
     parser.add_argument("--guardrails", choices=["on", "off"], default="on")
+    parser.add_argument("--w2-seed", type=int, default=None, help="Fresh W2 sample reports")
     args = parser.parse_args(argv)
     guardrails = args.guardrails == "on"
 
@@ -65,6 +67,11 @@ def main(argv: list[str] | None = None) -> int:
     path_rows, path_details = w1_paths(guardrails)
     checks += [Check(*row) for row in path_rows]
     details |= path_details
+    ingest_rows, ingest_details = (
+        w2_ingest(guardrails, args.w2_seed) if args.w2_seed else w2_ingest(guardrails)
+    )
+    checks += [Check(*row) for row in ingest_rows]
+    details |= ingest_details
 
     gated = [c for c in checks if c.passed is not None]
     ok = all(c.passed for c in gated)
