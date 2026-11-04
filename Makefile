@@ -1,4 +1,4 @@
-.PHONY: help up down reset migrate seed test lint fmt token logs psql
+.PHONY: help up down reset migrate seed test lint fmt token eval redflag scrub llm-smoke logs psql
 
 EXEC = docker compose exec -T api
 
@@ -37,6 +37,18 @@ fmt:  ## Apply formatting
 
 token:  ## Issue a dev token: make token role=patient id=P0001
 	@$(EXEC) python -m sahyog.cli token --role $(role) --id $(id)
+
+eval:  ## S1 safety evals on the fake model; GUARDRAILS=off must fail
+	$(EXEC) python -m sahyog.evals.run --guardrails $(or $(GUARDRAILS),on)
+
+redflag:  ## Red-flag gate on one message: make redflag text="..." [age=62]
+	@$(EXEC) python -m sahyog.cli redflag --text "$(text)" $(if $(age),--age $(age))
+
+scrub:  ## What leaves the boundary: make scrub text="..." [patient=P0001]
+	@$(EXEC) python -m sahyog.cli scrub --text "$(text)" $(if $(patient),--patient $(patient))
+
+llm-smoke:  ## Optional: one real model call (needs LLM_PROVIDER=anthropic and a key in .env)
+	@$(EXEC) python -m sahyog.cli llm-smoke
 
 logs:  ## Follow API logs
 	docker compose logs -f api
