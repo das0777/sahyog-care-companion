@@ -1,5 +1,5 @@
 # s0: lint and tests
-commit: 23e8bf4  date: 2026-11-04T06:56Z
+commit: 6f4499f  date: 2026-11-04T06:58Z
 image: sahyog-app:dev (MVP image, code mounted from this checkout)
 
 ## ruff
@@ -8,5 +8,5 @@ All checks passed!
 ruff exit 0
 
 ## pytest
-....................................                                     [100%]
-36 passed in 0.86s
+.....................................                                    [100%]
+37 passed in 1.00s
