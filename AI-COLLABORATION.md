@@ -46,3 +46,26 @@ Added as each pull request merges.
 - **Test that catches it now:** `test_capacity_cannot_drop_below_a_booked_token`, `test_cancelled_booking_cant_come_back_above_capacity`. 37 tests pass, 35 before.
 - **Recorded risks, fix before real data:** the app connects as the database superuser, which can drop triggers; `TRUNCATE clinical_note` isn't blocked, and the seed truncates it; doctor and desk roles can read any patient; callers set the purpose and trace id that go into the audit; the default dev secret isn't refused at startup; services listen on all interfaces; seeded ABHA IDs are random 14-digit numbers.
 - **Carried to S2:** "never contact a synthetic patient", in code with a test. **Also noted:** migration 0001 was edited in place, so an already-migrated database keeps the old triggers until `make reset`. New rules go in new migrations from here on.
+
+### #10 · S1 Safety core and eval harness
+
+| | |
+|---|---|
+| **Pull request** | [#10](https://github.com/das0777/sahyog-care-companion/pull/10), ported from the MVP at `s1-accepted` on top of the reviewed S0. (#2, the first S1 pull request, was closed unreviewed when the stages were opened all at once by mistake) |
+| **Review** | A new independent AI review agent (Claude, fresh, no part in writing the code or in #1's review), run by the coding agent at the owner's request. Three rounds, on the pull request. The reviewer ran its own inputs against the code in the dev image. The owner didn't read the code line by line |
+| **CI** | Still not running on this repo. Lint, tests and evals ran locally on the fixed code (`evals/runs/s1-tests.txt`) |
+
+- **Agent proposed:** the MVP's S1 as it was: red-flag rules, scrubber, gateway, offline evals.
+- **Review round 1: changes needed, five must-fix items, each shown with a real input.**
+  - *Common emergency wordings missed* ("main suicide karna chahta hoon", "मैं मरना चाहता हूं", "baby is not breathing", "my chest hurts", "having a stroke"). B1r showed 30/30 only because the rules were tuned on those probes. **Fixed** with rules for the given wordings, recorded as regression cases, not recall. **Not fixed:** "took 20 paracetamol tablets". The agent argued a count rule would cause false alarms. The reviewer disagreed (the engine already thresholds age) but accepted deferring it to S2 as a fixed rule.
+  - *Rule loading didn't fail closed:* an engine with no rules answered "no red flag" to "crushing chest pain". **Fixed:** `RulesNotLoaded`.
+  - *Schemas coerced instead of rejecting* (`"0.9"`, `"yes"`), and B7 passed anyway because its fixture couldn't be coerced. **Fixed:** strict schemas.
+  - *The system prompt was never scrubbed.* **Changed:** the agent rejected scrubbing it, because it would mangle fixed prompts. The gateway now refuses any outside call whose system prompt carries an identifier. The reviewer accepted.
+  - *The known patient's identifiers leaked* (date of birth forms, the name in Devanagari). Date forms **fixed**. Devanagari name **not fixed** (no transliteration library in the image). **Recorded** as a known limitation with a strict expected-failure test, and made an entry condition for S2.
+- **Review round 2: changes needed, two items.** The eval run had used the old rules from the shared database, so "all gates pass" was true for the tests but not the evals. **Fixed:** each run now builds its own eval database from the branch. And the Devanagari leak was only in a PR comment. **Fixed:** in the stage doc, with the test.
+- **Review round 3: OK to merge.**
+- **Where the agent was wrong:** the MVP's S1 rules missed common emergency wordings while its recall gate showed 100%; the gate was fail-open; the schema coerced; a stated contract (scrub everything leaving) wasn't true for the system prompt; and the agent's first rerun claimed evals passed on rules they hadn't loaded.
+- **Test that catches it now:** `test_review_wordings_are_caught`, `test_an_engine_with_no_rules_refuses_to_answer`, `test_wrong_types_are_rejected_not_coerced`, `test_system_prompt_with_an_identifier_never_leaves`, the extra date forms in `test_date_of_birth_becomes_an_age_band`, and the strict xfail `test_known_name_in_devanagari_is_not_yet_scrubbed`. 179 passed, 1 expected failure.
+- **Carried to S2:** never contact a synthetic patient (from #1); keep Devanagari known-patient prompts in-region or seed a Devanagari name; a fixed "N or more tablets" rule with these wordings as golden cases.
+- **Recorded risks, fix before real data:** over-scrubbing of capitalised symptom and test names (the MVP later added C22 and F22); ABHA addresses and landlines leak; B5 is partly circular; no Marathi; Ollama errors escape the fallback; some false alarms and typo misses; the guardrails-off run doesn't cover B6 and B7; no warning when the database holds an older rules version.
+

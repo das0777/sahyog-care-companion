@@ -1,0 +1,4 @@
+{
+  "description": "a list instead of an object",
+  "reply": "[{\"specialty_id\": \"SP03\", \"confidence\": 0.8}]"
+}

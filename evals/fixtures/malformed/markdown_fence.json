@@ -1,0 +1,4 @@
+{
+  "description": "JSON inside a code fence",
+  "reply": "```json\n{\"specialty_id\": \"SP03\", \"confidence\": 0.8}\n```"
+}
