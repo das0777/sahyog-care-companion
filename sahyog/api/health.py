@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Response, status
 from redis import Redis
+from redis.exceptions import RedisError
 from sqlalchemy import text
 
 from sahyog.config import get_settings
@@ -7,6 +8,7 @@ from sahyog.db import get_engine
 from sahyog.storage import get_minio
 
 router = APIRouter(tags=["platform"])
+WORKER_HEARTBEAT = "worker:heartbeat"
 
 
 def _check(fn) -> str:
@@ -39,4 +41,13 @@ def health(response: Response) -> dict:
     healthy = all(v == "ok" for v in checks.values())
     if not healthy:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-    return {"status": "ok" if healthy else "degraded", **checks}
+    # Reported apart: the API can still triage without the worker, though uploads and drafts wait
+    return {"status": "ok" if healthy else "degraded", **checks, "worker": _worker()}
+
+
+def _worker() -> str:
+    try:
+        beat = Redis.from_url(get_settings().redis_url, socket_timeout=2).get(WORKER_HEARTBEAT)
+    except RedisError:
+        return "unknown"
+    return "ok" if beat else "no heartbeat"
