@@ -1,0 +1,16 @@
+{"test": "HbA1c", "queries": ["HbA1c", "what was my HbA1c", "my hba1c value", "three month sugar average"]}
+{"test": "Fasting Blood Sugar", "queries": ["fasting sugar", "what was my fasting blood sugar", "khali pet sugar kitni thi", "FBS result"]}
+{"test": "Post Prandial Sugar", "queries": ["post prandial sugar", "sugar after food", "khane ke baad sugar"]}
+{"test": "TSH", "queries": ["TSH", "thyroid result", "thyroid test report"]}
+{"test": "Total Cholesterol", "queries": ["total cholesterol", "what is my cholesterol"]}
+{"test": "LDL Cholesterol", "queries": ["LDL", "bad cholesterol"]}
+{"test": "HDL Cholesterol", "queries": ["HDL", "good cholesterol"]}
+{"test": "Triglycerides", "queries": ["triglycerides", "blood fat levels"]}
+{"test": "Haemoglobin", "queries": ["haemoglobin", "hemoglobin level", "khoon ki kami report", "Hb"]}
+{"test": "Platelet Count", "queries": ["platelets", "platelet count"]}
+{"test": "Serum Creatinine", "queries": ["creatinine", "kidney function result"]}
+{"test": "Blood Urea", "queries": ["urea", "blood urea result"]}
+{"test": "Vitamin D", "queries": ["vitamin D", "vitamin d level"]}
+{"test": "Vitamin B12", "queries": ["B12", "vitamin b12 result"]}
+{"test": "SGPT", "queries": ["SGPT", "liver enzyme"]}
+{"test": "Uric Acid", "queries": ["uric acid", "gout test result"]}
