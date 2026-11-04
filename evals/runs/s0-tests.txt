@@ -1,0 +1,12 @@
+# s0: lint and tests
+commit: 6f4499f  date: 2026-11-04T06:58Z
+image: sahyog-app:dev (MVP image, code mounted from this checkout)
+
+## ruff
+All checks passed!
+23 files already formatted
+ruff exit 0
+
+## pytest
+.....................................                                    [100%]
+37 passed in 1.00s
