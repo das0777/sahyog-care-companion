@@ -1,0 +1,4 @@
+{
+  "description": "alternative is a name, not an id",
+  "reply": "{\"specialty_id\": \"SP03\", \"alternative\": \"cardiology\", \"confidence\": 0.7}"
+}
