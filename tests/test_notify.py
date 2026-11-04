@@ -40,3 +40,4 @@ def test_without_an_adapter_nothing_is_sent():
 def test_seeded_patients_have_a_devanagari_name():
     patient = _patient()
     assert patient.name_local and any("\u0900" <= ch <= "\u097f" for ch in patient.name_local)
+    assert "सम्मानात्मक" not in patient.name_local and "माननीय" not in patient.name_local

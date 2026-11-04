@@ -22,6 +22,8 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     op.add_column("patient", sa.Column("name_local", sa.String(120)))
+    # Why a person changed something, e.g. a desk override; written once, like the rest of the row
+    op.add_column("audit_event", sa.Column("reason", sa.String(300)))
     op.drop_constraint("uq_appointment_slot_token", "appointment", type_="unique")
     for name, column in (
         ("uq_appointment_active_token", "token_no"),
@@ -124,6 +126,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.drop_column("audit_event", "reason")
     op.drop_column("patient", "name_local")
     op.drop_table("idempotency_record")
     op.drop_table("sms_outbox")

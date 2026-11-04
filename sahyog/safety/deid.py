@@ -162,12 +162,12 @@ class Scrubber:
 def _known(text: str, p: KnownIdentity, today: date) -> list[Span]:
     spans = []
     if p.name_local:
-        # Devanagari has no case, so the full name and each part of two letters or more are removed
-        for form in [p.name_local.strip(), *p.name_local.split()]:
-            if len(form) >= 2:
-                spans += [
-                    Span(m.start(), m.end(), "PERSON") for m in re.finditer(re.escape(form), text)
-                ]
+        # Whole Devanagari words only: "बल" must not take the start of "बलगम" (phlegm). Single
+        # parts need 4 letters or more, so a short part that is also a word ("काम", work) stays
+        parts = [w for w in p.name_local.split() if len(w) >= 4]
+        for form in [p.name_local.strip(), *parts]:
+            pattern = rf"(?<![\u0900-\u097F]){re.escape(form)}(?![\u0900-\u097F])"
+            spans += [Span(m.start(), m.end(), "PERSON") for m in re.finditer(pattern, text)]
     full = re.escape(p.name.strip())
     spans += [Span(m.start(), m.end(), "PERSON") for m in re.finditer(full, text, re.IGNORECASE)]
     for part in p.name.split():

@@ -91,3 +91,17 @@ def test_known_name_in_devanagari_is_scrubbed(scrubber):
     out = scrubber.scrub("रवि कुलकर्णी को सीने में दर्द है", patient=ravi, today=TODAY).text
     assert "रवि" not in out and "कुलकर्णी" not in out
     assert "सीने में दर्द" in out
+
+
+@pytest.mark.parametrize(
+    ("name_local", "sentence", "kept"),
+    [
+        ("बल रंगन", "बलगम में खून आ रहा है", "बलगम"),
+        ("राम कुमार", "आराम नहीं मिल रहा", "आराम नहीं"),
+        ("सुनील काम", "काम करते समय सीने में दर्द", "काम करते"),
+    ],
+)
+def test_devanagari_name_parts_never_cut_into_other_words(scrubber, name_local, sentence, kept):
+    """From the S2 review: name parts were removed as substrings, damaging symptom words."""
+    p = KnownIdentity("Test Patient", "+91 5500000000", name_local=name_local)
+    assert kept in scrubber.scrub(sentence, patient=p, today=TODAY).text

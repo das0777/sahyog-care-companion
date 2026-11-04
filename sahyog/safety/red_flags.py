@@ -30,8 +30,10 @@ AGE_YEARS = re.compile(
 AGE_MONTHS = re.compile(r"\b(\d{1,2})\s*(?:months?|mahine)\s*(?:old|ka|ki|ke)\b")
 # "20 paracetamol tablets", "15 sleeping pills", "30 goliyan": a count, up to two words, then a unit
 PILL_COUNT = re.compile(
-    r"\b(\d{1,3})\s+(?:[^\W\d]+\s+){0,2}?(?:tablets?|tabs?|pills?|capsules?|goli(?:yan|yaan|ya)?)\b"
-    r"|(\d{1,3})\s+(?:\S+\s+){0,2}?(?:गोलियां|गोलियाँ|गोली)"
+    r"\b(\d{1,3})\s+(?:\S+\s+){0,3}?"
+    r"(?:tablets?|tabs?|pills?|capsules?|goli(?:yan|yaan|ya)?|paracetamol|crocin|dolo|calpol"
+    r"|combiflam|aspirin|ibuprofen|alprazolam|diazepam|clonazepam|sleeping)\b"
+    r"|(\d{1,3})\s+(?:\S+\s+){0,3}?(?:गोलियां|गोलियाँ|गोली)"
 )
 
 
@@ -221,7 +223,7 @@ class RedFlagEngine:
         if years is None:
             years = age_years
         months = _first_int(AGE_MONTHS, lowered)
-        pills = _first_int(PILL_COUNT, lowered)
+        pills = _largest_int(PILL_COUNT, lowered)
         held: dict[str, str] = {}
         for m in self.modifiers.values():
             if m.kind == "age_at_least" and years is not None and years >= (m.value or 0):
@@ -282,6 +284,12 @@ def _word_like(a: str, b: str) -> bool:
     if min(len(a), len(b)) < 5:
         return False
     return DamerauLevenshtein.normalized_similarity(a, b) >= WORD_SIMILARITY
+
+
+def _largest_int(pattern: re.Pattern[str], text: str) -> int | None:
+    """The largest count anywhere: "2 tablets at 8, then 12 more tablets" is 12, not 2."""
+    counts = [int(next(g for g in m.groups() if g)) for m in pattern.finditer(text)]
+    return max(counts, default=None)
 
 
 def _first_int(pattern: re.Pattern[str], text: str) -> int | None:

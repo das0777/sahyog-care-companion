@@ -169,7 +169,7 @@ def _patients(rng: random.Random, fake: Faker, n: int, fake_hi: Faker) -> list[d
                 "abha_id": f"{digits[:2]}-{digits[2:6]}-{digits[6:10]}-{digits[10:]}",
                 "name": fake.name(),
                 # Synthetic, so not a transliteration of `name`: real records hold both forms
-                "name_local": fake_hi.name(),
+                "name_local": f"{fake_hi.first_name()} {fake_hi.last_name()}",
                 # From rng, not Faker: Faker goes via local time, so dates moved with the time zone
                 "dob": DOB_FROM + timedelta(days=rng.randrange(DOB_SPAN_DAYS)),
                 # +91 55 is outside India's mobile ranges, but it can match a real landline,
