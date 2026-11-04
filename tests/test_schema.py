@@ -23,6 +23,7 @@ SPEC_TABLES = {
     "embedding_cache",
     "scribe_job",
     "stock_reservation",
+    "trace_span",
 }
 
 

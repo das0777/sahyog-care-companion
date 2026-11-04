@@ -7,6 +7,9 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+from redis import Redis
+from redis.exceptions import RedisError
+
 from sahyog.config import get_settings
 from sahyog.db import get_sessionmaker
 from sahyog.graphs.runtime import get_scribe_runtime
@@ -19,6 +22,7 @@ log = logging.getLogger("sahyog.ingest")
 READY_FILE = Path("/tmp/worker-ready")  # noqa: S108 - inside the container, for its health check
 POLL_S = 0.5
 AUDIO_SWEEP_S = 600
+HEARTBEAT_TTL_S = 30
 
 
 def main() -> None:
@@ -59,8 +63,18 @@ def main() -> None:
                 log.exception("audio sweep error")
             time.sleep(AUDIO_SWEEP_S)
 
-    with ThreadPoolExecutor(settings.ingest_workers + 1) as pool:
+    def heartbeat() -> None:
+        client = Redis.from_url(settings.redis_url, socket_timeout=2)
+        while True:
+            try:
+                client.set("worker:heartbeat", "1", ex=HEARTBEAT_TTL_S)
+            except RedisError:
+                log.warning("heartbeat write failed")
+            time.sleep(HEARTBEAT_TTL_S / 3)
+
+    with ThreadPoolExecutor(settings.ingest_workers + 2) as pool:
         pool.submit(sweep)
+        pool.submit(heartbeat)
         for _ in range(settings.ingest_workers):
             pool.submit(loop)
 

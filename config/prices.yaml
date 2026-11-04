@@ -2,12 +2,21 @@
 # Update `as_of` and `source` together with the numbers.
 as_of: 2026-10-06
 source: Anthropic first-party API price list (cached in the claude-api reference, 2026-10-06)
+# Local speech and embeddings have no per-token bill. These are placeholders until the hospital's
+# infrastructure price is known, and every cost report says so while `placeholder` is true.
+infrastructure:
+  placeholder: true
+  stt_usd_per_minute: 0.0
+  embedding_usd_per_chunk: 0.0
+  storage_compute_usd_per_month: 0.0
 models:
   claude-sonnet-5-5: {input: 2.00, output: 10.00}
   claude-haiku-5-5: {input: 0.10, output: 0.50}
   # OpenRouter's public model list, checked 2026-10-30; the same prices as first-party
   anthropic/claude-sonnet-5.5: {input: 2.00, output: 10.00}
   anthropic/claude-haiku-5.5: {input: 0.10, output: 0.50}
+  # The second provider for the vendor-swap check (E6.4)
+  google/gemini-2.5-flash: {input: 0.30, output: 2.50}
   # Self-hosted in region: no per-token price; compute is costed separately (spec: cost per consultation)
   llama3.1:8b: {input: 0.0, output: 0.0}
   fake-small: {input: 0.0, output: 0.0}
