@@ -1,5 +1,5 @@
 # s2: lint and tests
-commit: ead44e0  date: 2026-11-04T07:53Z
+commit: e6b51e0  date: 2026-11-04T07:55Z
 image: sahyog-app:dev (MVP image, code mounted from this checkout)
 evals read sahyog_eval, rebuilt on each run from this branch's migrations and full seed
 
@@ -9,11 +9,11 @@ All checks passed!
 ruff exit 0
 
 ## pytest
-........................................................................ [ 28%]
-........................................................................ [ 56%]
-........................................................................ [ 84%]
-.........................................                                [100%]
-257 passed in 7.83s
+........................................................................ [ 27%]
+........................................................................ [ 55%]
+........................................................................ [ 82%]
+.............................................                            [100%]
+261 passed in 7.65s
 
 ## make eval (guardrails on)
 (eval database sahyog_eval rebuilt from this branch: migrations and full seed)
@@ -25,7 +25,7 @@ B1    Red-flag recall (golden)                                      100%        
 B1r   Red-flag recall (blind probes, now regression)                100%                PASS    30/30
 B3    False alarms on non-emergencies                               ≤ 20% (reported)    info    1/17 — w1-017
 B4    Language detection                                            ≥ 90%               PASS    30/30
-B12   Red-flag check latency                                        p95 < 50 ms         PASS    p95 11.61 ms
+B12   Red-flag check latency                                        p95 < 50 ms         PASS    p95 11.06 ms
 B5    Identifiers leaving the boundary (200 payloads)               0                   PASS    0
 B6    Clinical content kept after scrubbing                         ≥ 95%               PASS    350/350 (100.0%)
 B5b   Names not in the name list caught (NER and rules)             reported            info    26/26
