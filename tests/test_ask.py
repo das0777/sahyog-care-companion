@@ -497,3 +497,23 @@ def test_a_plain_read_back_is_not_blocked(answer):
     from sahyog.safety.wording import clinical_answer
 
     assert not clinical_answer(answer)
+
+
+# Misses found in the S4 final review, kept as expected failures: the word lists are a backstop
+@pytest.mark.xfail(strict=True, reason="Backstop miss; measured on unseen rewordings in S7")
+@pytest.mark.parametrize(
+    ("kind", "text"),
+    [
+        ("question", "insulin kitna badhana hai"),
+        ("question", "मैं दवा बंद कर दूं क्या"),
+        ("question", "do I need insulin now"),
+        ("question", "is my cholesterol dangerous"),
+        ("answer", "Your sugar is under control."),
+        ("answer", "You can continue the same tablets."),
+        ("answer", "Keep taking Metformin 500 mg."),
+    ],
+)
+def test_s4_backstop_misses(kind, text):
+    from sahyog.safety.wording import asks_for_advice_on_records, clinical_answer
+
+    assert (asks_for_advice_on_records if kind == "question" else clinical_answer)(text)
