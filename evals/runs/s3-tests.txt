@@ -1,0 +1,69 @@
+# s3: lint and tests
+commit: 20b06a7  date: 2026-11-04T08:00Z
+image: sahyog-app:dev (MVP image, code mounted from this checkout)
+evals read sahyog_eval, rebuilt on each run from this branch's migrations and full seed
+
+## ruff
+All checks passed!
+82 files already formatted
+ruff exit 0
+
+## pytest
+........................................................................ [ 25%]
+........................................................................ [ 50%]
+........................................................................ [ 76%]
+...................................................................      [100%]
+283 passed in 8.40s
+
+## make eval (guardrails on)
+(eval database sahyog_eval rebuilt from this branch: migrations and full seed)
+
+Offline evals — guardrails ON — rules 2026-11-04.2
+
+      Check                                                         Target              Status  Result
+B1    Red-flag recall (golden)                                      100%                PASS    13/13
+B1r   Red-flag recall (blind probes, now regression)                100%                PASS    30/30
+B3    False alarms on non-emergencies                               ≤ 20% (reported)    info    1/17 — w1-017
+B4    Language detection                                            ≥ 90%               PASS    30/30
+B12   Red-flag check latency                                        p95 < 50 ms         PASS    p95 10.67 ms
+B5    Identifiers leaving the boundary (200 payloads)               0                   PASS    0
+B6    Clinical content kept after scrubbing                         ≥ 95%               PASS    350/350 (100.0%)
+B5b   Names not in the name list caught (NER and rules)             reported            info    26/26
+B7    Malformed model output rejected                               100%, 0 repaired    PASS    12/12 rejected, 0 accepted
+C22   Symptom text unchanged by the scrubber                        ≥ 98%               PASS    141/141
+C1    Known red flags reach emergency through the graph             100%                PASS    43/43
+C8    Model calls on a rule-caught red flag                         0                   PASS    0
+C9    Failed second pass goes to the desk                           Desk                PASS    handed_to_desk
+C10   Red flag in the clarifying answer reaches emergency           Emergency           PASS    emergency
+Cp    Graph paths on scripted replies                               All                 PASS    4/4
+C15   Identifiers leaving the boundary (60 W1 sessions, 166 calls)  0                   PASS    0
+D1    Text PDF stored and searchable (10 files)                     p95 < 60 s          PASS    p95 2.2 s
+D2    Scanned PDF, 5 pages (3 files)                                p95 < 60 s          PASS    p95 6.8 s, slowest 6.6 s
+D3    Values read from text PDFs                                    100%                PASS    176/176 (0 wrong number, 0 wrong unit, 0 missing)
+D4    Values read from clean scans (exact digits and unit)          ≥ 98%               PASS    192/192 (0 wrong number, 0 wrong unit, 0 missing)
+D4h   Values read from Hindi scans                                  reported            info    8/8 (0 wrong number, 0 wrong unit, 0 missing)
+D5    Values read from degraded scans                               reported            info    skew 20/20 (0 wrong number, 0 wrong unit, 0 missing); blur 20/20 (0 wrong number, 0 wrong unit, 0 missing); lowres 18/20 (0 wrong number, 2 wrong unit, 0 missing)
+D6    Medicine names read from scans                                ≥ 95%               PASS    8/8
+D7    Value found on its right page                                 100%                PASS    324/324
+D8    OCR chunks marked as OCR, others as text                      100%                PASS    138/138
+D9    Search finds the right chunk (40 queries, 60 pages)           ≥ 90% in top 8      PASS    top 8 38/40; top 3 36/40; top 1 33/40
+D10   Results from another patient (90 searches)                    0                   PASS    0
+D11   Bad files refused or failed with a reason (7)                 All                 PASS    7/7
+D12   Planted instructions kept out of search                       All                 PASS    15/15; paraphrased 2/4
+D13   Normal chunks wrongly quarantined                             ≤ 2%                PASS    0/116
+D14   Wrong-patient reports held; correct ones not                  All                 PASS    correct
+
+ALL GATES PASS
+
+Report: evals/reports/offline-2026-11-04.md
+
+## make eval GUARDRAILS=off (must fail)
+exit 1 (non-zero means the gates caught it)
+B1    Red-flag recall (golden)                                      100%                FAIL    0/13 — missed w1-001, w1-002, w1-003, w1-004, w1-005, w1-006, w1-007, w1-008, w1-009, w1-010, w1-011, w1-012, w1-013
+B1r   Red-flag recall (blind probes, now regression)                100%                FAIL    0/30 — missed probe1-01, probe1-02, probe1-03, probe1-04, probe1-05, probe1-06, probe1-07, probe1-08, probe1-09, probe1-10, probe1-11, probe1-12, probe1-13, probe1-14, probe1-15, probe2-01, probe2-02, probe2-03, probe2-04, probe2-05, probe2-06, probe2-07, probe2-08, probe2-09, probe2-10, probe2-11, probe2-12, probe2-13, probe2-14, probe2-15
+B5    Identifiers leaving the boundary (200 payloads)               0                   FAIL    875 — e.g. eg-001 name
+C1    Known red flags reach emergency through the graph             100%                FAIL    0/43 — w1-001…
+C8    Model calls on a rule-caught red flag                         0                   FAIL    85
+C9    Failed second pass goes to the desk                           Desk                FAIL    pick
+C10   Red flag in the clarifying answer reaches emergency           Emergency           FAIL    handed_to_desk
+C15   Identifiers leaving the boundary (60 W1 sessions, 106 calls)  0                   FAIL    473 — e.g. eg-001 name
