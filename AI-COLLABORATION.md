@@ -69,3 +69,23 @@ Added as each pull request merges.
 - **Carried to S2:** never contact a synthetic patient (from #1); keep Devanagari known-patient prompts in-region or seed a Devanagari name; a fixed "N or more tablets" rule with these wordings as golden cases.
 - **Recorded risks, fix before real data:** over-scrubbing of capitalised symptom and test names (the MVP later added C22 and F22); ABHA addresses and landlines leak; B5 is partly circular; no Marathi; Ollama errors escape the fallback; some false alarms and typo misses; the guardrails-off run doesn't cover B6 and B7; no warning when the database holds an older rules version.
 
+### #12 · S3 W2 Ingest
+
+| | |
+|---|---|
+| **Pull request** | [#12](https://github.com/das0777/sahyog-care-companion/pull/12), ported from the MVP at `s3-accepted` on top of the reviewed S0 to S2 |
+| **Review** | A new independent AI review agent (Claude, fresh), run by the coding agent at the owner's request. Three rounds, on the pull request. The reviewer ran a live two-worker overlap on a disposable database. The owner didn't read the code line by line |
+| **CI** | Still not running on this repo. Lint, tests and evals ran locally on the fixed code (`evals/runs/s3-tests.txt`) |
+
+- **Agent proposed:** the MVP's W2 ingest: upload, Postgres queue and worker, OCR, identity check, injection scan, local embeddings, patient-filtered search.
+- **Review round 1: changes needed, three must-fix items.** The reviewer confirmed that only patients upload, only for themselves, and that nothing leaves the boundary.
+  - *The wrong-patient check missed a family member's report:* "Rahul Sharma" passed for "Priya Sharma" on the shared surname, and several label styles were never checked. **Fixed:** every printed name word must match the patient's name, with more labels recognised.
+  - *Two workers could run one job:* the 180 s lease was never renewed, and no write checked ownership. **Fixed:** fencing by attempt number on every write, and a lease renewed per page.
+  - *A few-KB PDF with one giant page could exhaust the worker's memory.* **Fixed:** pages over A2 are refused, and rendering is capped at 40 MP.
+- **Agent's own regression, caught by the eval:** the stricter name check cut "Bakhshi Date" at the stop word "date" and held her report, which also failed D4 and D6. **Fixed** before re-review.
+- **Review round 2: changes needed, one item.** The agent's fix held the patient's own report when her name had a title ("Mrs. Priya Sharma"), and no D14 sample had one. **Fixed:** titles are stripped before both checks, whole-word matching applies, text PDFs need a closer word match than scans, and half the D14 samples now print a title.
+- **Review round 3: OK to merge.**
+- **Where the agent was wrong:** the MVP's identity check and job queue each had a real gap, and no page-size limit; **two of the agent's own fixes in this pull request broke correct reports** (a surname that is a stop word, and a titled name), caught by the eval and by the reviewer.
+- **Test that catches it now:** `test_a_family_members_report_is_held` (including titled and longer names), `test_a_worker_that_lost_its_lease_writes_nothing`, `test_a_giant_page_is_refused_at_upload`, and D14 with titled samples. 286 passed.
+- **Recorded risks, fix before real data:** search takes `patient_id` from the caller (S4's scope guard must check it, so S4's reviewer is asked to verify); no audit on zero-hit searches; the P-number pattern over-quarantines; D10 checks the chunk's own patient, not the document's; D12 compares 40 characters without collapsing whitespace; no request-body size limit; files left in MinIO when an insert fails; a process-wide PDF lock in the API; keyword candidates without an outer order; the worker can reach the network; "Patient name" without a colon, with the name on the next line, isn't checked; "Mrs.Priya" with no space isn't stripped; D14 samples use only "Smt.".
+
