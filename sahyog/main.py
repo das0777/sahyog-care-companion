@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 
-from sahyog.api import desk, health, records, w1
+from sahyog.api import desk, health, records, w1, w2
 from sahyog.auth import new_trace_id
 from sahyog.storage import ensure_buckets
 
@@ -34,3 +34,4 @@ app.include_router(health.router)
 app.include_router(records.router)
 app.include_router(w1.router)
 app.include_router(desk.router)
+app.include_router(w2.router)
