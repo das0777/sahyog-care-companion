@@ -1,0 +1,47 @@
+name: AI-collaboration note
+
+# House rule 3: a pull request without its AI-collaboration note can't merge.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  note:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every field is filled in
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          python3 - <<'EOF'
+          import os, re, sys
+          body = re.sub(r"<!--.*?-->", "", os.environ.get("BODY") or "", flags=re.S)
+          fields = [
+              "Agent proposed:",
+              "Rejected or changed, and why:",
+              "Where the agent was wrong:",
+              "Test that catches it now:",
+              "What I checked myself:",
+          ]
+          missing = []
+          for i, field in enumerate(fields):
+              start = body.find(f"**{field}**")
+              if start < 0:
+                  missing.append(field)
+                  continue
+              start += len(field) + 4
+              ends = [body.find(f"**{f}**", start) for f in fields[i + 1 :]] + [body.find("\n## ", start)]
+              ends = [e for e in ends if e >= 0]
+              text = body[start : min(ends) if ends else len(body)].strip()
+              if not text:
+                  missing.append(field)
+          if missing:
+              print("Fill in the AI-collaboration note. Empty or missing:")
+              for m in missing:
+                  print(f"  - {m}")
+              sys.exit(1)
+          print("AI-collaboration note present.")
+          EOF
