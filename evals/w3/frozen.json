@@ -1,0 +1,6 @@
+{
+  "prompts_hash": "11b9bc24510d0221",
+  "small_model": "anthropic/claude-haiku-5.5",
+  "large_model": "anthropic/claude-sonnet-5.5",
+  "frozen_on": "2026-10-30"
+}
