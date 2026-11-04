@@ -114,3 +114,17 @@ def test_a_name_in_a_report_narrative_still_goes(scrubber):
     assert "Lepcha" not in out
     out = scrubber.scrub("Consultant: Dr. Meera Nair\nHbA1c 7.2 %").text
     assert "Nair" not in out and "HbA1c 7.2 %" in out
+
+
+@pytest.mark.parametrize(
+    ("name_local", "sentence", "kept"),
+    [
+        ("बल रंगन", "बलगम में खून आ रहा है", "बलगम"),
+        ("राम कुमार", "आराम नहीं मिल रहा", "आराम नहीं"),
+        ("सुनील काम", "काम करते समय सीने में दर्द", "काम करते"),
+    ],
+)
+def test_devanagari_name_parts_never_cut_into_other_words(scrubber, name_local, sentence, kept):
+    """From the S2 review: name parts were removed as substrings, damaging symptom words."""
+    p = KnownIdentity("Test Patient", "+91 5500000000", name_local=name_local)
+    assert kept in scrubber.scrub(sentence, patient=p, today=TODAY).text
