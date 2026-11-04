@@ -266,9 +266,21 @@ def test_a_family_members_report_is_held():
         "Patient Name:\nRahul Verma",
     ]:
         assert check(text), text
-    for text in ["Patient Name: Priya Sharma", "Patient: P. Sharma", "Pt. Name: PRIYA SHARMA"]:
+    for text in [
+        "Patient Name: Priya Sharma",
+        "Patient: P. Sharma",
+        "Pt. Name: PRIYA SHARMA",
+        # From the S3 re-review: a title before her own name must not hold her report
+        "Patient Name: Mrs. Priya Sharma",
+        "Patient Name: Ms Priya Sharma",
+        "Patient Name: Smt. Priya Sharma Report Date: 02/03/2026",
+    ]:
         assert check(text) is None, text
     assert check("Patient Name: Priya Shamra", "ocr") is None  # a scan's misread letters
+    # A longer name that starts with the patient's is someone else
+    assert identity.mismatch(
+        [PageText(1, "Patient Name: Ravi Kumari", "text")], name="Ravi Kumar", abha_id="1"
+    )
     # A surname that is also a stop word ("Date") still matches the patient
     assert (
         identity.mismatch(

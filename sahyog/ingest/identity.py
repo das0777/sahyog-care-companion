@@ -21,7 +21,9 @@ _NAME_LINE = re.compile(
     re.M,
 )
 _NAME_STOP = re.compile(r"\b(report|date|age|abha|consultant|dob|sex|gender|uhid|mobile)\b|\d|:")
-WORD_SIMILARITY = 85  # each printed word against the patient's name words; scans get a little less
+# Titles printed before a name on Indian reports; they aren't part of the name
+_TITLE = re.compile(r"^(?:(?:mr|mrs|ms|miss|master|dr|shri|sri|smt|kum|baby|b/o)\.?\s+)+")
+WORD_SIMILARITY = 92  # each printed word against the patient's name words: "Kumari" isn't "Kumar"
 OCR_WORD_SIMILARITY = 75
 ABHA_OCR_DIGITS = 2
 
@@ -37,12 +39,14 @@ def mismatch(pages: list[PageText], *, name: str, abha_id: str) -> str | None:
                 return "The ABHA number on this report isn't this patient's."
         for same_line, next_line in _NAME_LINE.findall(normalise(page.text)):
             # The name may follow the label on the same line, or sit on the line below it
-            raw = same_line if same_line.strip() else next_line
+            raw = _TITLE.sub("", (same_line if same_line.strip() else next_line).strip())
             # The patient's full name first, before cutting at words like "date": a surname can
             # be one of those words ("Bakhshi Date")
             own = normalise(name)
             least = OCR_WORD_SIMILARITY if page.source == "ocr" else WORD_SIMILARITY
-            if fuzz.ratio(raw.strip()[: len(own)], own) >= least:
+            # ...and only as whole words: "Ravi Kumari" must not pass for "Ravi Kumar"
+            head, after = raw[: len(own)], raw[len(own) : len(own) + 1]
+            if fuzz.ratio(head, own) >= least and not after.isalpha():
                 continue
             printed = _NAME_STOP.split(raw)[0].strip(" .,")
             if len(printed) < 3:

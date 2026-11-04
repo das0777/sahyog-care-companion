@@ -118,7 +118,9 @@ def _header(c, p: Patient | None, title: str, date: str, *, name=None, abha=None
     c.drawString(50, 770, title)
     c.setFont("Helvetica", 10)
     if name is not None or p is not None:
-        c.drawString(50, 750, f"Patient Name: {name if name is not None else p.name}")
+        # Half the reports print a title, as many Indian labs do: D14 must not hold those
+        own = f"{'Smt. ' if int(p.patient_id[-1]) % 2 else ''}{p.name}" if p is not None else None
+        c.drawString(50, 750, f"Patient Name: {name if name is not None else own}")
     if abha is not None or p is not None:
         c.drawString(50, 736, f"ABHA: {abha if abha is not None else p.abha_id}")
     c.drawString(350, 750, f"Report Date: {date}")
