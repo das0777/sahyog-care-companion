@@ -28,7 +28,18 @@ def test_abha_removed_in_any_format(scrubber, abha):
     assert out == "ABHA <ABHA_1>"
 
 
-@pytest.mark.parametrize("dob", ["1945-06-11", "11/06/1945", "11 Jun 1945", "June 11, 1945"])
+@pytest.mark.parametrize(
+    "dob",
+    [
+        "1945-06-11",
+        "11/06/1945",
+        "11 Jun 1945",
+        "June 11, 1945",
+        "11-Jun-1945",
+        "11th June 1945",
+        "11th of June 1945",
+    ],
+)
 def test_date_of_birth_becomes_an_age_band(scrubber, dob):
     out = scrubber.scrub(f"DOB {dob}.", patient=PATIENT, today=TODAY).text
     assert out == "DOB 80–89 years."

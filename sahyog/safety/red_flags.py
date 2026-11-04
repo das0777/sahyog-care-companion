@@ -98,6 +98,10 @@ class Decision:
         )
 
 
+class RulesNotLoaded(RuntimeError):
+    """The engine has no rules, so it can't say a message is safe."""
+
+
 class RedFlagEngine:
     def __init__(
         self,
@@ -164,6 +168,9 @@ class RedFlagEngine:
 
     def check(self, text: str, *, age_years: int | None = None, enabled: bool = True) -> Decision:
         """Decide on one intake message. `age_years` comes from the patient profile when known."""
+        if enabled and not self.concepts:
+            # A gate with no rules is a gate that didn't run: never answer "no red flag"
+            raise RulesNotLoaded("Red-flag rules are not loaded")
         started = time.perf_counter()
         language = detect(text)
         words = tokens(text)

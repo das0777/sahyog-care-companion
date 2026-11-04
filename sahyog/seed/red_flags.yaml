@@ -11,7 +11,7 @@
 # combos    fire when every group in `all_of` has a match and, if `any_modifier` is set,
 #           at least one of those modifiers holds.
 
-version: 2026-10-30.3
+version: 2026-11-04.1
 reviewed_by: null
 
 global:
@@ -20,6 +20,10 @@ global:
       label: Chest pain or pressure
       synonyms:
         - chest pain
+        - chest hurts
+        - chest is hurting
+        - chest mein dard
+        - chest me dard
         - pain in chest
         - pain in my chest
         - chest pressure
@@ -55,6 +59,8 @@ global:
       label: Severe breathing difficulty
       synonyms:
         - cannot breathe
+        - not breathing
+        - stopped breathing
         - can't breathe
         - cant breathe
         - cant breath
@@ -104,6 +110,8 @@ global:
       label: Stroke signs
       synonyms:
         - face drooping
+        - having a stroke
+        - is having a stroke
         - face is drooping
         - drooping on one side
         - slurred speech
@@ -148,6 +156,14 @@ global:
       label: Suicidal thoughts or self-harm
       synonyms:
         - suicidal
+        - suicide
+        - =marna chahta
+        - =marna chahti
+        - =mar jana hai
+        - =mar jaana hai
+        - मरना चाहता
+        - मरना चाहती
+        - आत्महत्या
         - want to die
         - kill myself
         - end my life

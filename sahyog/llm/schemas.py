@@ -6,8 +6,9 @@ SPECIALTY_ID = r"^SP\d{2}$"
 
 
 class Strict(BaseModel):
-    # Unknown fields are an error, not ignored: a reply with extra keys is not what we asked for
-    model_config = ConfigDict(extra="forbid")
+    # Unknown fields are an error, not ignored: a reply with extra keys is not what we asked for.
+    # Strict: "0.9" is not a number and "yes" is not a bool; reject rather than coerce
+    model_config = ConfigDict(extra="forbid", strict=True)
 
 
 class SpecialtyMatch(Strict):

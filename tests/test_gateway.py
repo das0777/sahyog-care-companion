@@ -215,3 +215,35 @@ def test_ollama_adapter():
     )
     with pytest.raises(ModelUnavailable):
         down.generate(REQUEST)
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        '{"specialty_id": "SP12", "alternative": null, "confidence": "0.8"}',
+        '{"specialty_id": "SP12", "alternative": null, "confidence": true}',
+    ],
+)
+def test_wrong_types_are_rejected_not_coerced(reply):
+    with pytest.raises(SchemaRejected):
+        call(gateway(FakeModel(reply)))
+
+
+def test_a_whole_number_is_still_a_valid_confidence():
+    reply = '{"specialty_id": "SP12", "alternative": null, "confidence": 1}'
+    assert call(gateway(FakeModel(reply))).output.confidence == 1
+
+
+def test_system_prompt_with_an_identifier_never_leaves():
+    patient = KnownIdentity("Urvashi Kulkarni", "+91 5522579937")
+    primary = FakeModel(OK)
+    with pytest.raises(BoundaryViolation):
+        gateway(primary).complete(
+            "small",
+            system="Patient Urvashi Kulkarni, phone 5522579937",
+            prompt="knee pain",
+            schema=SpecialtyMatch,
+            trace_id="t",
+            patient=patient,
+        )
+    assert not primary.received

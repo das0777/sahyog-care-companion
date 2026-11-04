@@ -107,6 +107,9 @@ class ModelGateway:
                 raise BoundaryViolation(f"in-region call would go to {route.provider}")
             sent, scrub = prompt, None
             if not adapter.in_boundary and self.scrub_enabled:
+                # System prompts are fixed text and aren't scrubbed, so they may carry no identifier
+                if self.scrubber.identifiers(system, patient=patient):
+                    raise BoundaryViolation("system prompt carries an identifier")
                 scrub = self.scrubber.scrub(prompt, patient=patient)
                 sent = scrub.text
                 record.scrubbed = scrub.counts

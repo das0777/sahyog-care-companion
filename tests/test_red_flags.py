@@ -5,7 +5,7 @@ import pytest
 
 from sahyog.db import get_sessionmaker
 from sahyog.safety.language import detect
-from sahyog.safety.red_flags import RedFlagEngine
+from sahyog.safety.red_flags import RedFlagEngine, RulesNotLoaded
 
 
 def _load(name):
@@ -91,3 +91,32 @@ def test_disabled_engine_flags_nothing(engine):
 @pytest.mark.parametrize("case", GOLDEN, ids=lambda c: c["id"])
 def test_language_label(case):
     assert detect(case["input"]) == case["language"]
+
+
+# Wordings from the AI review of the S1 pull request. Rules were added for them after the review,
+# so these are regression cases, not a recall measurement
+@pytest.mark.parametrize(
+    "text",
+    [
+        "main suicide karna chahta hoon",
+        "मैं मरना चाहता हूं",
+        "mujhe mar jana hai",
+        "baby is not breathing",
+        "my chest hurts",
+        "chest mein dard ho raha hai",
+        "I think he is having a stroke",
+    ],
+)
+def test_review_wordings_are_caught(engine, text):
+    assert engine.check(text).red_flag
+
+
+def test_karna_chahta_still_does_not_flag(engine):
+    assert not engine.check("main appointment book karna chahta hoon").red_flag
+
+
+def test_an_engine_with_no_rules_refuses_to_answer():
+    empty = RedFlagEngine.from_rules({"SP01": {}})
+    with pytest.raises(RulesNotLoaded):
+        empty.check("crushing chest pain, cannot breathe")
+    assert not empty.check("anything", enabled=False).red_flag

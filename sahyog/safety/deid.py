@@ -146,6 +146,14 @@ class Scrubber:
             spans += _ner(text)
         return _apply(text, _resolve(spans))
 
+    def identifiers(
+        self, text: str, *, patient: KnownIdentity | None = None, today: date | None = None
+    ) -> list[Span]:
+        """Only the exact passes (the patient's own details, ID and phone patterns): no name
+        guessing, so fixed text like a system prompt isn't flagged for a capitalised word."""
+        today = today or date.today()
+        return (_known(text, patient, today) if patient else []) + _patterns(text, today)
+
 
 # ---- passes ------------------------------------------------------------------------------
 
@@ -398,7 +406,17 @@ def _date_forms(d: date) -> list[str]:
         f"{d.day} {d:%B} {d.year}",
         f"{d:%B} {d.day}, {d.year}",
         f"{d:%b} {d.day}, {d.year}",
+        f"{d.day:02d}-{d:%b}-{d.year}",
+        f"{d.day}-{d:%b}-{d.year}",
+        f"{d.day}-{d:%B}-{d.year}",
+        f"{d.day}{_ordinal(d.day)} {d:%B} {d.year}",
+        f"{d.day}{_ordinal(d.day)} {d:%b} {d.year}",
+        f"{d.day}{_ordinal(d.day)} of {d:%B} {d.year}",
     ]
+
+
+def _ordinal(n: int) -> str:
+    return "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
 
 
 def _parse_date(raw: str) -> date | None:
