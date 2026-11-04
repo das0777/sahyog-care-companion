@@ -1,4 +1,4 @@
-.PHONY: help up down reset migrate seed test lint fmt token eval eval-live redflag scrub llm-smoke chat desk purge-threads set-key key-from-clipboard w2-samples upload doc-status search logs psql
+.PHONY: help up down reset migrate seed test lint fmt token eval eval-live redflag scrub llm-smoke chat desk purge-threads set-key key-from-clipboard w2-samples upload doc-status search ask logs psql
 
 EXEC = docker compose exec -T api
 
@@ -50,8 +50,8 @@ scrub:  ## What leaves the boundary: make scrub text="..." [patient=P0001]
 llm-smoke:  ## One real model call (needs a key: make set-key)
 	@$(EXEC) python -m sahyog.cli llm-smoke
 
-eval-live:  ## Real model calls (costs money, needs a key): make eval-live set=tune|match|speed|probe3|heldout
-	$(EXEC) python -m sahyog.evals.w1_live --set $(set)
+eval-live:  ## Real model calls (costs money): set=tune|match|speed|probe3|heldout|ask-tune|ask-freeze|ask|ask-redteam|ask-speed
+	$(EXEC) python -m $(if $(findstring ask,$(set)),sahyog.evals.w2_live,sahyog.evals.w1_live) --set $(set)
 
 chat:  ## A whole W1 conversation in the terminal: make chat patient=P0001
 	@docker compose exec api python -m sahyog.cli chat --patient $(patient)
@@ -78,6 +78,9 @@ upload:  ## Upload a PDF as a patient: make upload file=path/to/report.pdf patie
 doc-status:  ## Status of an upload: make doc-status job=<job_id> patient=P0001
 	@curl -s localhost:8000/w2/documents/$(job) \
 		-H "Authorization: Bearer $$($(EXEC) python -m sahyog.cli token --role patient --id $(patient))"; echo
+
+ask:  ## Ask about reports: make ask patient=P0011 q="my HbA1c?" [as=CG0011]
+	@$(EXEC) python -m sahyog.cli ask --patient $(patient) --q "$(q)" $(if $(as),--as $(as))
 
 search:  ## Search a patient's records: make search patient=P0001 q="HbA1c"
 	@$(EXEC) python -m sahyog.cli search --patient $(patient) --q "$(q)"

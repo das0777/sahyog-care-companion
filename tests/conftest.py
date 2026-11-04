@@ -5,6 +5,8 @@ os.environ["DATABASE_URL"] = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+psycopg://sahyog:sahyog-dev@localhost:5433/sahyog_test"
 )
 
+os.environ["EMBEDDER"] = "hash"  # tests never load the 2 GB model; evals measure the real one
+
 import pytest  # noqa: E402
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402

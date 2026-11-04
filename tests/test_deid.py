@@ -91,3 +91,26 @@ def test_known_name_in_devanagari_is_scrubbed(scrubber):
     out = scrubber.scrub("रवि कुलकर्णी को सीने में दर्द है", patient=ravi, today=TODAY).text
     assert "रवि" not in out and "कुलकर्णी" not in out
     assert "सीने में दर्द" in out
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Fasting Blood Sugar 110 mg/dL 70-100",
+        "Total Cholesterol 277 mg/dL <200",
+        "Uric Acid 5.8 mg/dL 3.5-7.2",
+        "Platelet Count 3.36 lakh/cumm 1.5-4.5",
+        "Test Result Unit Reference",
+        "Discharge Summary",
+    ],
+)
+def test_report_wording_is_not_taken_for_a_name(scrubber, line):
+    text = f"BIOCHEMISTRY\n{line}\nEnd of page"
+    assert scrubber.scrub(text).text == text
+
+
+def test_a_name_in_a_report_narrative_still_goes(scrubber):
+    out = scrubber.scrub("Seen with her attending physician Phurba Lepcha today.").text
+    assert "Lepcha" not in out
+    out = scrubber.scrub("Consultant: Dr. Meera Nair\nHbA1c 7.2 %").text
+    assert "Nair" not in out and "HbA1c 7.2 %" in out

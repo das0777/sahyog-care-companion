@@ -1,0 +1,7 @@
+{
+  "prompts_hash": "cea8ca1a46970749",
+  "provider": "openrouter",
+  "small_model": "anthropic/claude-haiku-5.5",
+  "large_model": "anthropic/claude-sonnet-5.5",
+  "frozen_on": "2026-10-30"
+}

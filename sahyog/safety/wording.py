@@ -8,13 +8,17 @@ from sahyog.safety.text import normalise
 
 _ADVICE_REQUEST = [
     r"\b(what|which|how much)\b.*"
-    r"\b(tablets?|medicines?|medication|dose|dosage|drugs?|antibiotics?)\b",
+    r"\b(tablets?|medicines?|medication|dose|dosage|drugs?|antibiotics?|insulin)\b",
     r"\bprescribe\b",
+    # Changing a medicine (from the S4 re-review: "should I stop my tablets")
+    r"\b(stop|start|increase|reduce|skip|change|double)\b.*"
+    r"\b(tablets?|medicines?|medication|dose|insulin|dawa|dawai|goli|\w+(?:min|pril|sartan|statin|olol))\b",
+    r"\b(band|shuru|badha|ghata)\s+(kar|karu|karun|karoon|kardu|du|doon)\b",
     r"\bdiagnos",
     r"\bwhat (disease|illness|condition)\b",
     r"\bdo i have\b",
     r"\b(is|could) (this|it)\b.*\b(cancer|tumou?r|infection|serious|dangerous)\b",
-    r"\b(kaunsi|kaun si|konsi|kitni)\b.*\b(dawa|dawai|dose|goli|tablet|medicine)\b",
+    r"\b(kaunsi|kaun si|konsi|kitni)\b.*\b(dawa|dawai|dose|goli|tablet|medicine|insulin)\b",
     r"\b(dawa|dawai|goli)\b.*\b(batao|bataiye|leni|lun|loon)\b",
     r"\b(kaunsi|kaun si|konsi|kya) (bimari|beemari)\b",
     r"(कौन सी|कौनसी|कितनी).*(दवा|दवाई|गोली|खुराक)",
@@ -31,12 +35,80 @@ _CLINICAL_OUTPUT = [
     r"बीमारी है",
     r"(दवा|दवाई|गोली) (ले|लें|लीजिए)",
 ]
+_INTERPRETIVE_ANSWER = [
+    r"\bdiagnos",
+    r"\b(you|your)\b.{0,30}\b(have|has|suffer|likely|probably)\b.{0,40}"
+    r"\b(disease|disorder|diabetes|anaemia|anemia|infection|failure|cancer|condition)\b",
+    r"\b(this|it|these|that)\s+(indicates?|suggests?|means|shows? that|points? to)\b",
+    r"\b(indicates?|suggests?|consistent with|sign of|risk of)\b",
+    r"\byou\s+(should|must|need to|ought to)\b",
+    r"\b(should|must)\s+(take|stop|start|increase|reduce)\b",
+    # A judgement on a value, not the value itself (from the S4 review)
+    r"\b(is|are|was|were|looks?|seems?)\s+(very\s+|slightly\s+|too\s+|quite\s+|a bit\s+)?"
+    r"(low|high|abnormal|elevated|raised|deranged|borderline|worrying|concerning|dangerous)\b",
+    r"\bmeans you\b",
+    r"\b(you are|you're|aap)\s+(diabetic|pre-?diabetic|anaemic|anemic|hypertensive)\b",
+    r"\b(damage|failure|disease|infection)\s+is\s+(likely|possible|probable)\b",
+    r"\blikely\b",
+    # Telling the patient to change a medicine
+    r"\b(you can|you may)\s+(stop|start|skip|reduce|increase)\b",
+    r"\b(increase|decrease|reduce|raise|lower|stop|start|double|halve|skip)\b(?:\s+\w+){0,3}?\s+"
+    r"(?:doses?|tablets?|medicines?|medication|insulin|\w+(?:min|pril|sartan|statin|olol|ide|ine))\b",
+    r"(ज्यादा|ज़्यादा|कम|अधिक|बढ़ी हुई|असामान्य|सामान्य|ठीक) है",
+    r"(बढ़ा|घटा|बंद कर|शुरू कर)\s*(दें|दो|दीजिए|लें)",
+    # From the S4 re-review: Hinglish judgements and dose changes, reassurance, and "you don't need"
+    r"\b(high|low|kam|zyada|jyada|badha hua|normal|theek|thik)\s+(hai|hain|he)\b",
+    r"\b(band|shuru|badha|ghata|kam)\s+(kar|karo|kijiye|kar dijiye|kar do|do|dijiye)\b",
+    r"\b(dose|dawai|dawa|goli)\b.{0,20}\b(badha|ghata|band|kam)\b",
+    r"\b(is|are|was|were|looks?|seems?)\s+(\w+\s+)?(normal|fine|ok|okay|good|healthy|reassuring)\b",
+    r"\b(nothing|no need) to worry\b",
+    r"\bon the (higher|lower) side\b",
+    r"\b(above|below|within|outside)\s+(the\s+)?(normal|reference)\s+range\b",
+    r"\byou (do not|don't|no longer) need\b",
+    r"\btake\s+(one|two|another|more|an extra|\d+)\b",
+    r"\bnot (working|functioning) (well|properly)\b",
+    r"\b(aapko|aap ko)\b.{0,30}\b(bimari|beemari|diabetes)\b",
+    r"बीमारी है",
+    r"(आपको|आप को).{0,30}(लेनी चाहिए|लेना चाहिए)",
+]
 _ADVICE = re.compile("|".join(_ADVICE_REQUEST))
 _CLINICAL = re.compile("|".join(_CLINICAL_OUTPUT))
+_INTERPRETIVE = re.compile("|".join(_INTERPRETIVE_ANSWER))
 
 
 def asks_for_advice(text: str) -> bool:
     return bool(_ADVICE.search(normalise(text)))
+
+
+_READ_BACK = re.compile(
+    r"\b(did|was|were|prescribed|given|discharge|discharged|listed|report|reports|thi|the|mili)\b"
+    r"|(थी|थीं|थे|रिपोर्ट|लिखी|लिखा)"
+)
+
+
+# A question about what to do next is advice, however it mentions the report (from the S4 review:
+# "what dose of the metformin should I take" passed because of "the")
+_FORWARD = re.compile(
+    r"\b(should|shall|must|need to|can i|do i have|am i|is (this|it)|could (this|it)"
+    r"|chahiye|lun|loon|leni|lena|best|right for me|hisaab se|according to|per my"
+    r"|for (the|my) (sugar|bp|pressure|pain|fever|cholesterol|thyroid))\b"
+    r"|(चाहिए|लूं|लूँ|क्या मुझे|के हिसाब से)"
+)
+
+
+def asks_for_advice_on_records(text: str) -> bool:
+    """W2 may read back a medicine a report lists ("which medicines was I given"), so a question
+    about what was printed may go on. A question about what to do, or what it means, goes straight
+    to a person. The model catches the rest through wants_diagnosis_or_dose."""
+    lowered = normalise(text)
+    if not _ADVICE.search(lowered):
+        return False
+    return bool(_FORWARD.search(lowered)) or not _READ_BACK.search(lowered)
+
+
+def clinical_answer(text: str) -> bool:
+    """For W2 answers, which may read back a printed dose ("Metformin 500 mg") but not interpret."""
+    return bool(_INTERPRETIVE.search(normalise(text)))
 
 
 def sounds_clinical(text: str) -> bool:
