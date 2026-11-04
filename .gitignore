@@ -12,3 +12,6 @@ evals/reports/
 # macOS sync copies on the Desktop ("name 2.py", "name 2")
 * 2
 * 2.*
+
+# Generated sample PDFs
+evals/w2/generated/
