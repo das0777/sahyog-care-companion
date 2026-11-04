@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 
-from sahyog.api import desk, health, records, w1, w2
+from sahyog.api import desk, health, records, w1, w2, w3
 from sahyog.auth import new_trace_id
 from sahyog.config import get_settings
 from sahyog.ingest.embedding import get_embedder
@@ -41,3 +41,4 @@ app.include_router(records.router)
 app.include_router(w1.router)
 app.include_router(desk.router)
 app.include_router(w2.router)
+app.include_router(w3.router)

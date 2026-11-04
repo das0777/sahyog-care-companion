@@ -44,6 +44,7 @@ services:
   # Downloads the embedding model once, so the API and worker never race to fetch 2 GB
   model-init:
     build: .
+    image: sahyog-app:dev
     env_file: .env
     command: python -m sahyog.ingest.embedding
     volumes:
@@ -53,6 +54,7 @@ services:
 
   api:
     build: .
+    image: sahyog-app:dev
     env_file: .env
     command: uvicorn sahyog.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/sahyog
     ports: ["8000:8000"]
@@ -79,6 +81,7 @@ services:
   # Ingest apart from the API, so OCR and embedding can't starve triage
   worker:
     build: .
+    image: sahyog-app:dev
     env_file: .env
     command: python -m sahyog.ingest.worker
     volumes:
