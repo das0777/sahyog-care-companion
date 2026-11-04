@@ -417,3 +417,65 @@ def test_new_state_takes_identity_from_the_context():
     ctx = AuthContext("P0030", Role.PATIENT, "self_access", new_trace_id())
     state = new_state(ctx, "P0030", "q")
     assert state["actor_id"] == "P0030" and state["role"] == "patient"
+
+
+# From the S4 review: everyday words switched the refusal off, and the answer check missed most
+# interpretation and dose-change wording
+@pytest.mark.parametrize(
+    "question",
+    [
+        "which tablet should I take for the sugar",
+        "what dose of the metformin should I take",
+        "do i have diabetes, check my report",
+        "is this cancer, per the scan",
+        "kitni insulin leni chahiye",
+    ],
+)
+def test_advice_wrapped_in_report_words_is_still_refused(question):
+    from sahyog.safety.wording import asks_for_advice_on_records
+
+    assert asks_for_advice_on_records(question)
+
+
+@pytest.mark.parametrize(
+    "question",
+    ["which medicines was I given at discharge", "what dose was prescribed in the report"],
+)
+def test_a_read_back_question_still_goes_on(question):
+    from sahyog.safety.wording import asks_for_advice_on_records
+
+    assert not asks_for_advice_on_records(question)
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        "Your haemoglobin is low.",
+        "Fasting sugar was 126 mg/dL, which is high.",
+        "This is abnormal.",
+        "A value like this means you are diabetic.",
+        "Kidney damage is likely.",
+        "Increase Metformin to 500 mg.",
+        "You can stop the Metformin.",
+        "आपकी शुगर ज्यादा है, दवा बढ़ा दें।",
+    ],
+)
+def test_interpretation_and_dose_changes_are_blocked(answer):
+    from sahyog.safety.wording import clinical_answer
+
+    assert clinical_answer(answer)
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        "Fasting sugar was 126 mg/dL (Lab report, page 2).",
+        "Metformin 500 mg twice daily is listed on page 1.",
+        "The reference range printed is 70-100 mg/dL.",
+        "Start date on the prescription is 01/02/2026.",
+    ],
+)
+def test_a_plain_read_back_is_not_blocked(answer):
+    from sahyog.safety.wording import clinical_answer
+
+    assert not clinical_answer(answer)
