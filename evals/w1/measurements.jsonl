@@ -1,0 +1,2 @@
+{"set": "probe3", "date": "2026-10-30", "prompts_hash": "82177012808b3bcb", "summary": "rules alone 7/15; combined gate 15/15; second pass failed and went to the desk 0; missed 0", "misses": []}
+{"set": "match", "date": "2026-10-30", "prompts_hash": "82177012808b3bcb", "summary": "accuracy 38/38; non-English 21/21; vague asked 10/10; clear asked 0/38; false alarms 3/53; advice 5/5", "misses": []}
