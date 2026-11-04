@@ -146,11 +146,11 @@ def _windows(name: str, doctor: str) -> tuple[list[str], bool]:
         stops += [numbers[1].start()] if len(numbers) > 1 else []
         # ...and a dose that sits in front of another name is that name's, even when it's the
         # only number: "Continue amlodipine, Telma 40 mg" and "Give 5 mg amlodipine, 40 mg telma"
-        stops += [x.start() for x in _BRAND_BEFORE_DOSE.finditer(window)]
         stops += [
-            x.start()
-            for x in _DOSE_BEFORE_NAME.finditer(window)
-            if x.group(1) not in _NOT_NAMES
+            x.start() for x in _BRAND_BEFORE_DOSE.finditer(window) if x.group(1) not in _NOT_NAMES
+        ]
+        stops += [
+            x.start() for x in _DOSE_BEFORE_NAME.finditer(window) if x.group(1) not in _NOT_NAMES
         ]
         out.append(window[: min(stops, default=len(window))])
     return out, negated
@@ -240,7 +240,8 @@ _NOT_NAMES = frozenset(
     "twice thrice once daily nightly weekly hourly times time day days week weeks month months "
     "morning noon evening night bedtime at for with after before on in as and or the then oral "
     "orally tab tabs tablet tablets capsule capsules drop drops sos prn stat every needed if when "
-    "until till to per of is apply inhale local topical syrup cream sachet units unit".split()
+    "until till to per of is apply inhale local topical syrup cream sachet units unit each mane "
+    "nocte alternate during".split()
 )
 _DRUG_SHAPE = re.compile(
     r"\b\w+(?:pril|sartan|statin|olol|xaban|parin|dipine|prazole|mycin|cillin|floxacin|cycline"
