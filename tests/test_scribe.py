@@ -686,3 +686,19 @@ def test_omit_withdraw_and_pause_make_the_doctor_confirm(doctor):
 )
 def test_a_line_cant_reverse_an_omit_pause_or_withdraw(text, quote):
     assert grounding.unfaithful(text, quote, strict=True)
+
+
+@pytest.mark.parametrize(
+    ("doctor", "dose"),
+    [
+        ("Start amlodipine oral 5 mg daily.", "5 mg"),
+        ("Start amlodipine tab 5 mg daily.", "5 mg"),
+        ("Start amlodipine tablet 5 mg once daily.", "5 mg"),
+        ("Start amlodipine 5 mg each night.", "5 mg"),
+        ("Start amlodipine 5 mg mane.", "5 mg"),
+        ("Start amlodipine 5 mg alternate days.", "5 mg"),
+    ],
+)
+def test_route_and_frequency_words_dont_end_a_medicines_dose(doctor, dose):
+    out = _one("Amlodipine", dose, doctor)
+    assert out.medicines and out.medicines[0]["dose"] == dose

@@ -56,6 +56,8 @@ services:
     build: .
     image: sahyog-app:dev
     env_file: .env
+    environment:
+      DEV_LOGIN: "true"  # local demo only: the screens' sign-in stands in for the hospital's OIDC
     command: uvicorn sahyog.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/sahyog
     ports: ["8000:8000"]
     volumes:

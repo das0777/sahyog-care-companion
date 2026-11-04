@@ -101,6 +101,8 @@ def ask(body: AskIn, ctx: AuthContext = Depends(get_auth_context)):
         "answer": result["answer"],
         "citations": result.get("citations", []),
     }
+    if result.get("sentences"):
+        payload["sentences"] = result["sentences"]
     if result.get("scan_warning"):
         payload["scan_warning"] = result["scan_warning"]
     if result.get("ticket_id"):

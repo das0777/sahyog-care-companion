@@ -346,8 +346,9 @@ def unresolved(state: dict, edits: dict | None) -> list[str]:
     """A signature can't leave a gap open: the doctor fills it or removes it."""
     edits = edits or {}
     gaps = edits["gaps"] if "gaps" in edits else state.get("gaps", [])
-    if edits.get("medicines") is not None:
-        no_dose = [m["name"] for m in edits["medicines"] if not m.get("dose", "").strip()]
-        return [g["text"] for g in gaps] + [f"{n}: no dose" for n in no_dose]
-    dose_gaps = [m for m in state.get("medicines", []) if m["dose_gap"]]
-    return [g["text"] for g in gaps] + [m["text"] for m in dose_gaps]
+    meds = edits.get("medicines")
+    if meds is not None:
+        dose_gaps = [f"{m['name']}: no dose" for m in meds if not m.get("dose", "").strip()]
+    else:
+        dose_gaps = [m["text"] for m in state.get("medicines", []) if m["dose_gap"]]
+    return [g["text"] for g in gaps] + dose_gaps
