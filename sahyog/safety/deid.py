@@ -304,11 +304,26 @@ def _ner(text: str) -> list[Span]:
     for r in results:
         if r.entity_type == "PERSON":
             trimmed = _trim_name(text, r.start, r.end)
-            if trimmed:
+            if trimmed and _ner_name_is_plausible(text, trimmed):
                 spans.append(trimmed)
         else:
             spans.append(Span(r.start, r.end, "EMAIL"))
     return spans
+
+
+def _ner_name_is_plausible(text: str, span: Span) -> bool:
+    """spaCy's small English model, on patient free text, tags symptoms as people: "kerosene",
+    "blurry vision", Devanagari and most Hinglish. Taking those out would blind the model to the
+    complaint, so its word is taken only for capitalised Latin words, and not for a lone word
+    opening a sentence ("Knee pain", "Grandpa suddenly"). Lower-case or sentence-initial names are
+    left to the known-identifier pass, the name list and the cue rules."""
+    words = text[span.start : span.end].split()
+    if not all(re.match(r"[A-Z][a-zA-Z'’.-]*$", w) for w in words):
+        return False
+    if len(words) > 1:
+        return True
+    before = text[: span.start].rstrip()
+    return bool(before) and before[-1] not in ".!?:;\n"
 
 
 def _trim_name(text: str, start: int, end: int) -> Span | None:

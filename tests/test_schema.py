@@ -15,11 +15,17 @@ SPEC_TABLES = {
     "prescription",
     "medicine_stock",
     "audit_event",
+    "desk_ticket",
+    "sms_outbox",
+    "idempotency_record",
 }
 
 
-def test_all_fourteen_spec_tables_exist(database):
-    tables = set(inspect(database).get_table_names()) - {"alembic_version"}
+def test_all_spec_tables_exist(database):
+    # LangGraph's checkpointer owns its own tables
+    tables = {t for t in inspect(database).get_table_names() if not t.startswith("checkpoint")} - {
+        "alembic_version"
+    }
     assert tables == SPEC_TABLES
 
 

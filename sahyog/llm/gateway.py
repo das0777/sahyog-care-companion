@@ -175,16 +175,17 @@ class ModelGateway:
 
 
 def build_gateway(settings=None) -> ModelGateway:
-    """Gateway from settings. LLM_PROVIDER=fake (the S1 default) needs no key and no network."""
+    """Gateway from settings. LLM_PROVIDER=fake (the default) needs no key and no network."""
     from sahyog.config import get_settings
 
     s = settings or get_settings()
     prices = Prices(Path(s.prices_file))
     if s.llm_provider == "fake":
         from sahyog.llm.adapters.fake import FakeModel
+        from sahyog.llm.adapters.fake_w1 import triage_script
 
         adapters: dict[str, Adapter] = {
-            "fake": FakeModel(),
+            "fake": FakeModel(triage_script),
             "fake-region": FakeModel(name="fake-region", in_boundary=True),
         }
         routes: dict[TaskClass, Route] = {
@@ -194,16 +195,22 @@ def build_gateway(settings=None) -> ModelGateway:
         }
         fallback = Route("fake-region", "fake-in-region")
     else:
-        from sahyog.llm.adapters.anthropic import AnthropicModel
         from sahyog.llm.adapters.ollama import OllamaModel
 
-        adapters = {
-            "anthropic": AnthropicModel(s.anthropic_api_key),
-            "ollama": OllamaModel(s.ollama_url),
-        }
+        outside: Adapter
+        if s.llm_provider == "openrouter":
+            from sahyog.llm.adapters.openrouter import OpenRouterModel
+
+            outside = OpenRouterModel(s.openrouter_api_key)
+        else:
+            from sahyog.llm.adapters.anthropic import AnthropicModel
+
+            outside = AnthropicModel(s.anthropic_api_key)
+        small, large = s.outside_models
+        adapters = {outside.name: outside, "ollama": OllamaModel(s.ollama_url)}
         routes = {
-            "small": Route("anthropic", s.llm_small_model),
-            "large": Route("anthropic", s.llm_large_model),
+            "small": Route(outside.name, small),
+            "large": Route(outside.name, large),
             "in_region": Route("ollama", s.llm_in_region_model),
         }
         fallback = Route("ollama", s.llm_in_region_model)
