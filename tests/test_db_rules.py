@@ -65,7 +65,7 @@ def test_same_token_twice_in_a_block_rejected(conn):
     slot_id, _ = _first_slot(conn)
     _book(conn, slot_id, 1, "k1")
     sp = conn.begin_nested()
-    with pytest.raises(IntegrityError, match="uq_appointment_slot_token"):
+    with pytest.raises(IntegrityError, match="uq_appointment_active_token"):
         _book(conn, slot_id, 1, "k2")
     sp.rollback()
 

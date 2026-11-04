@@ -28,6 +28,11 @@ AGE_YEARS = re.compile(
     r"|\b(\d{1,3})\s*(?:saal|sal)\s*(?:ka|ki|ke)\b"
 )
 AGE_MONTHS = re.compile(r"\b(\d{1,2})\s*(?:months?|mahine)\s*(?:old|ka|ki|ke)\b")
+# "20 paracetamol tablets", "15 sleeping pills", "30 goliyan": a count, up to two words, then a unit
+PILL_COUNT = re.compile(
+    r"\b(\d{1,3})\s+(?:[^\W\d]+\s+){0,2}?(?:tablets?|tabs?|pills?|capsules?|goli(?:yan|yaan|ya)?)\b"
+    r"|(\d{1,3})\s+(?:\S+\s+){0,2}?(?:गोलियां|गोलियाँ|गोली)"
+)
 
 
 @dataclass(frozen=True)
@@ -66,7 +71,7 @@ class Combo:
 @dataclass(frozen=True)
 class Modifier:
     id: str
-    kind: Literal["age_at_least", "age_months_below", "mention"]
+    kind: Literal["age_at_least", "age_months_below", "pill_count_at_least", "mention"]
     value: int | None = None
     phrases: tuple[Phrase, ...] = ()
 
@@ -216,12 +221,15 @@ class RedFlagEngine:
         if years is None:
             years = age_years
         months = _first_int(AGE_MONTHS, lowered)
+        pills = _first_int(PILL_COUNT, lowered)
         held: dict[str, str] = {}
         for m in self.modifiers.values():
             if m.kind == "age_at_least" and years is not None and years >= (m.value or 0):
                 held[m.id] = f"age {years}"
             elif m.kind == "age_months_below" and months is not None and months < (m.value or 0):
                 held[m.id] = f"{months} months old"
+            elif m.kind == "pill_count_at_least" and pills is not None and pills >= (m.value or 0):
+                held[m.id] = f"{pills} tablets"
             elif m.kind == "mention":
                 hits = _phrase_hits(m.phrases, words)
                 if hits:

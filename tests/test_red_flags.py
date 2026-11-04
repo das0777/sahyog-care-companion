@@ -120,3 +120,23 @@ def test_an_engine_with_no_rules_refuses_to_answer():
     with pytest.raises(RulesNotLoaded):
         empty.check("crushing chest pain, cannot breathe")
     assert not empty.check("anything", enabled=False).red_flag
+
+
+# Carried from the S1 review: an overdose stated as a count, caught by a fixed rule, not left
+# to the model second pass alone
+@pytest.mark.parametrize(
+    "text",
+    [
+        "took 20 paracetamol tablets",
+        "he took 15 sleeping tablets",
+        "maine 30 goliyan kha li",
+        "मैंने 20 गोलियां खा लीं",
+    ],
+)
+def test_an_overdose_by_count_is_caught(engine, text):
+    assert engine.check(text).red_flag
+
+
+@pytest.mark.parametrize("text", ["took 2 paracetamol for fever", "I take 1 tablet of metformin"])
+def test_a_normal_dose_does_not_flag(engine, text):
+    assert not engine.check(text).red_flag

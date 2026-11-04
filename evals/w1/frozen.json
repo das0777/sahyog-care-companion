@@ -1,0 +1,8 @@
+{
+  "prompts_hash": "82177012808b3bcb",
+  "second_pass_task": "small",
+  "provider": "openrouter",
+  "small_model": "anthropic/claude-haiku-5.5",
+  "large_model": "anthropic/claude-sonnet-5.5",
+  "frozen_on": "2026-10-30"
+}

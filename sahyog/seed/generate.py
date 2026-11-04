@@ -87,7 +87,10 @@ def seed(session: Session, *, random_seed: int, scale: Scale = Scale(), tz: str 
     ]
     doctors = _doctors(rng, fake, scale.doctors)
     slots = _slots(rng, doctors, first_day, scale.days, zone)
-    patients = _patients(rng, fake, scale.patients)
+    # A separate Faker for Devanagari names, so the main random stream (and the data) is unchanged
+    fake_hi = Faker("hi_IN")
+    fake_hi.seed_instance(random_seed)
+    patients = _patients(rng, fake, scale.patients, fake_hi)
     consents = _consents(patients, scale)
     stock = _stock(rng, first_day)
 
@@ -156,7 +159,7 @@ def _slots(rng, doctors, first_day: date, days: int, zone: ZoneInfo) -> list[dic
     return rows
 
 
-def _patients(rng: random.Random, fake: Faker, n: int) -> list[dict]:
+def _patients(rng: random.Random, fake: Faker, n: int, fake_hi: Faker) -> list[dict]:
     rows = []
     for i in range(1, n + 1):
         digits = f"{rng.randrange(10**14):014d}"
@@ -165,6 +168,8 @@ def _patients(rng: random.Random, fake: Faker, n: int) -> list[dict]:
                 "patient_id": f"P{i:04d}",
                 "abha_id": f"{digits[:2]}-{digits[2:6]}-{digits[6:10]}-{digits[10:]}",
                 "name": fake.name(),
+                # Synthetic, so not a transliteration of `name`: real records hold both forms
+                "name_local": fake_hi.name(),
                 # From rng, not Faker: Faker goes via local time, so dates moved with the time zone
                 "dob": DOB_FROM + timedelta(days=rng.randrange(DOB_SPAN_DAYS)),
                 # +91 55 is outside India's mobile ranges, but it can match a real landline,

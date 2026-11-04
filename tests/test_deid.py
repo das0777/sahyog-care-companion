@@ -85,8 +85,9 @@ def test_age_bands():
     assert age_band(date(1990, 10, 30), TODAY) == "30–39 years"
 
 
-@pytest.mark.xfail(strict=True, reason="Known limitation at S1: no Devanagari form of the name")
-def test_known_name_in_devanagari_is_not_yet_scrubbed(scrubber):
-    ravi = KnownIdentity("Ravi Kulkarni", "+91 5511223344")
+def test_known_name_in_devanagari_is_scrubbed(scrubber):
+    """S1's known limitation, closed in S2: the patient's Devanagari name is stored and removed."""
+    ravi = KnownIdentity("Ravi Kulkarni", "+91 5511223344", name_local="रवि कुलकर्णी")
     out = scrubber.scrub("रवि कुलकर्णी को सीने में दर्द है", patient=ravi, today=TODAY).text
-    assert "रवि" not in out
+    assert "रवि" not in out and "कुलकर्णी" not in out
+    assert "सीने में दर्द" in out

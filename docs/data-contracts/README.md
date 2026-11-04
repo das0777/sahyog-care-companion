@@ -1,6 +1,6 @@
 # Data contracts
 
-One contract per table: owner, sensitivity class, schema version and the checks that must hold. Schema version 1 is migration `0001`.
+One contract per table: owner, sensitivity class, schema version and the checks that must hold. Schema version 1 is the migration named in each contract: `0001`, or `0002` for the desk ticket, SMS stub and idempotency record.
 
 | Table | Owner | Sensitivity |
 |---|---|---|
@@ -18,3 +18,6 @@ One contract per table: owner, sensitivity class, schema version and the checks 
 | [prescription](prescription.md) | Scribe service | Clinical |
 | [medicine_stock](medicine_stock.md) | Pharmacy adapter | Operational |
 | [audit_event](audit_event.md) | Platform | Operational |
+| [desk_ticket](desk_ticket.md) | Scheduling service | Identified |
+| [sms_outbox](sms_outbox.md) | Scheduling service | Operational, tied to a patient |
+| [idempotency_record](idempotency_record.md) | API | Identified |
