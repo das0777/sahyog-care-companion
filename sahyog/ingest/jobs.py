@@ -12,7 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from sahyog.config import get_settings
-from sahyog.graphs.w2_ingest import fail_job
+from sahyog.graphs.w2_ingest import LostLease, fail_job, owned
 from sahyog.ingest.parse import Rejected, check_pdf, pdf_stream
 from sahyog.models import Document, IngestJob
 from sahyog.storage import get_minio
@@ -37,7 +37,7 @@ _CLAIM = text(
         FOR UPDATE SKIP LOCKED
         LIMIT 1
     )
-    RETURNING job_id, doc_id, patient_id, trace_id
+    RETURNING job_id, doc_id, patient_id, trace_id, attempts
     """
 )
 _GIVE_UP = text(
@@ -168,21 +168,22 @@ def run_job(graph, sessions, job: dict) -> None:
         "patient_id": job["patient_id"],
         "trace_id": job["trace_id"],
     }
+    if "attempts" in job:  # claimed by a worker: every write checks this attempt still holds it
+        state["attempt"] = job["attempts"]
+    attempt = state.get("attempt")
     try:
         graph.invoke(state)
+    except LostLease:
+        log.warning("job %s was taken over by another worker; this attempt stops", job["job_id"])
     except Rejected as e:
-        fail_job(sessions, job["job_id"], job["doc_id"], str(e))
+        fail_job(sessions, job["job_id"], job["doc_id"], str(e), attempt=attempt)
     except Exception:  # noqa: BLE001 - one bad file must never take the worker down
         log.exception("ingest failed for job %s", job["job_id"])
         with sessions.begin() as session:
-            attempts = session.scalar(
-                select(IngestJob.attempts).where(IngestJob.job_id == job["job_id"])
-            )
-            if attempts < MAX_ATTEMPTS:
-                session.execute(
-                    update(IngestJob)
-                    .where(IngestJob.job_id == job["job_id"])
-                    .values(status="queued", lease_until=None)
-                )
+            row = session.execute(owned(job["job_id"], attempt)).scalar()
+            if row is None:
+                return  # another worker holds it now: its result stands
+            if row.attempts < MAX_ATTEMPTS:
+                row.status, row.lease_until = "queued", None
                 return
-        fail_job(sessions, job["job_id"], job["doc_id"], RETRY_REASON)
+        fail_job(sessions, job["job_id"], job["doc_id"], RETRY_REASON, attempt=attempt)

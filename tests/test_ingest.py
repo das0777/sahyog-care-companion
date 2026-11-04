@@ -251,6 +251,26 @@ def test_identity_check_allows_no_name_and_ocr_slips_but_not_a_different_person(
     assert check("ABHA: 31-2545-1234-5679")
 
 
+def test_a_family_members_report_is_held():
+    """From the S3 review: a shared surname cleared the old whole-name score."""
+    check = lambda text, source="text": identity.mismatch(  # noqa: E731
+        [PageText(1, text, source)], name="Priya Sharma", abha_id="31-2545-1234-5678"
+    )
+    for text in [
+        "Patient Name: Rahul Sharma",
+        "Patient Name: Sharma",
+        "Patient Name: Priyanka Sharma",
+        "Patient: Rahul Verma",
+        "Name of Patient: Rahul Verma",
+        "Pt. Name: Rahul Verma",
+        "Patient Name:\nRahul Verma",
+    ]:
+        assert check(text), text
+    for text in ["Patient Name: Priya Sharma", "Patient: P. Sharma", "Pt. Name: PRIYA SHARMA"]:
+        assert check(text) is None, text
+    assert check("Patient Name: Priya Shamra", "ocr") is None  # a scan's misread letters
+
+
 # ---- re-upload and retries -------------------------------------------------------------------
 
 
@@ -411,3 +431,33 @@ def test_ingest_never_imports_the_model_gateway():
 
 def test_embedding_cache_holds_no_text():
     assert "text" not in {c.name for c in EmbeddingCache.__table__.columns}
+
+
+def test_a_worker_that_lost_its_lease_writes_nothing(graph):
+    """From the S3 review: a slow first worker finishing after a second claimed the job."""
+    data = pdf("HbA1c 6.7 % fencing test")
+    s = submit(Sessions(), data=data, patient_id="P0054", trace_id="t", run_here=True)
+    with Sessions().begin() as session:
+        # A second worker has claimed the job: the attempt count moved on
+        session.get(IngestJob, s.job_id).attempts = 2
+    stale = {"job_id": s.job_id, "doc_id": s.doc_id, "patient_id": "P0054", "trace_id": "t"}
+    run_job(graph, Sessions(), stale | {"attempts": 1})
+    assert not chunks(s.doc_id)
+    with Sessions()() as session:
+        job = session.get(IngestJob, s.job_id)
+    assert job.status == "running" and job.attempts == 2
+    assert doc(s.doc_id).status != "indexed"
+    # The current holder finishes normally
+    run_job(graph, Sessions(), stale | {"attempts": 2})
+    assert doc(s.doc_id).status == "indexed" and chunks(s.doc_id)
+
+
+def test_a_giant_page_is_refused_at_upload():
+    """From the S3 review: a few-KB PDF whose one page would render to gigabytes."""
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=(14400, 14400))
+    c.drawString(100, 100, "HbA1c 6.1 %")
+    c.showPage()
+    c.save()
+    with pytest.raises(Rejected, match="larger than A2"):
+        check_pdf(buf.getvalue())

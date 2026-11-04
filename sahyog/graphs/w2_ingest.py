@@ -7,11 +7,11 @@ row, which the API wrote from the token, never from the file. Calls no outside m
 import logging
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -45,6 +45,7 @@ class IngestState(TypedDict, total=False):
     vectors: list[list[float]]
     outcome: str
     reason: str | None
+    attempt: int  # the claim this worker holds; absent when a caller runs the job itself
 
 
 @dataclass
@@ -92,7 +93,7 @@ class _Nodes:
 
     def parse(self, state: IngestState) -> IngestState:
         parse.check_pdf(state["data"])
-        pages = parse.read_pages(state["data"])
+        pages = parse.read_pages(state["data"], on_page=lambda: renew(self.d.sessions, state))
         if not any(p.text.strip() for p in pages):
             raise parse.Rejected("No readable text was found in this PDF.")
         with self.d.sessions.begin() as session:
@@ -119,6 +120,7 @@ class _Nodes:
 
     def hold(self, state: IngestState) -> IngestState:
         with self.d.sessions.begin() as session:
+            _hold(session, state)
             _finish(session, state, "held", state["reason"])
             desk.open_ticket(
                 session,
@@ -181,6 +183,7 @@ class _Nodes:
         """One transaction: a retry replaces the document's chunks and can't duplicate them."""
         doc_id = uuid.UUID(state["doc_id"])
         with self.d.sessions.begin() as session:
+            _hold(session, state)  # checked and locked before anything is replaced
             session.execute(delete(DocChunk).where(DocChunk.doc_id == doc_id))
             session.execute(delete(QuarantinedChunk).where(QuarantinedChunk.doc_id == doc_id))
             for c, v in zip(state["chunks"], state["vectors"], strict=True):
@@ -227,6 +230,41 @@ class _Nodes:
         return {}
 
 
+class LostLease(RuntimeError):
+    """Another worker claimed this job after our lease ran out: our writes must not land."""
+
+
+def owned(job_id, attempt: int | None):
+    """The job row, locked, only while this attempt still holds it."""
+    query = select(IngestJob).where(IngestJob.job_id == job_id, IngestJob.status == "running")
+    if attempt is not None:
+        query = query.where(IngestJob.attempts == attempt)
+    return query.with_for_update()
+
+
+def _hold(session, state) -> None:
+    if session.execute(owned(uuid.UUID(state["job_id"]), state.get("attempt"))).scalar() is None:
+        raise LostLease(state["job_id"])
+
+
+def renew(sessions, state) -> None:
+    """Extend the lease during long work, so a slow scan isn't handed to a second worker."""
+    if state.get("attempt") is None:
+        return
+    with sessions.begin() as session:
+        done = session.execute(
+            update(IngestJob)
+            .where(
+                IngestJob.job_id == uuid.UUID(state["job_id"]),
+                IngestJob.attempts == state["attempt"],
+                IngestJob.status == "running",
+            )
+            .values(lease_until=func.now() + timedelta(seconds=get_settings().ingest_lease_s))
+        )
+        if done.rowcount == 0:
+            raise LostLease(state["job_id"])
+
+
 def _finish(session, state, status, reason, *, chunks=0, quarantined=0) -> None:
     session.execute(
         update(Document).where(Document.doc_id == uuid.UUID(state["doc_id"])).values(status=status)
@@ -245,8 +283,12 @@ def _finish(session, state, status, reason, *, chunks=0, quarantined=0) -> None:
     )
 
 
-def fail_job(sessions, job_id: uuid.UUID, doc_id: uuid.UUID, reason: str) -> None:
+def fail_job(
+    sessions, job_id: uuid.UUID, doc_id: uuid.UUID, reason: str, *, attempt: int | None = None
+) -> None:
     with sessions.begin() as session:
+        if attempt is not None and session.execute(owned(job_id, attempt)).scalar() is None:
+            return  # another worker holds the job: a late failure here can't undo its result
         session.execute(update(Document).where(Document.doc_id == doc_id).values(status="failed"))
         session.execute(
             update(IngestJob)

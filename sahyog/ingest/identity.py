@@ -15,12 +15,14 @@ from sahyog.safety.text import normalise
 
 ABHA = re.compile(r"(?<!\d)\d{2}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}(?!\d)")
 _NAME_LINE = re.compile(
-    r"(?:(?<![a-z] )\bpatient(?:'s)?\s*name|^\s*name|मरीज का नाम|^\s*नाम)"
-    r"\s*[:\-]\s*(.+)",
+    r"(?:(?<![a-z] )\bpatient(?:'s)?\s*name|\bname\s+of\s+(?:the\s+)?patient|\bpt\.?\s*name"
+    r"|^\s*patient|^\s*name|मरीज का नाम|^\s*नाम)"
+    r"\s*[:\-]\s*(.*)(?:\n\s*(.+))?",
     re.M,
 )
 _NAME_STOP = re.compile(r"\b(report|date|age|abha|consultant|dob|sex|gender|uhid|mobile)\b|\d|:")
-NAME_SIMILARITY = 70
+WORD_SIMILARITY = 85  # each printed word against the patient's name words; scans get a little less
+OCR_WORD_SIMILARITY = 75
 ABHA_OCR_DIGITS = 2
 
 
@@ -33,10 +35,30 @@ def mismatch(pages: list[PageText], *, name: str, abha_id: str) -> str | None:
             digits = re.sub(r"\D", "", found)
             if Levenshtein.distance(digits, own_abha) > room:
                 return "The ABHA number on this report isn't this patient's."
-        for raw in _NAME_LINE.findall(normalise(page.text)):
+        for same_line, next_line in _NAME_LINE.findall(normalise(page.text)):
+            # The name may follow the label on the same line, or sit on the line below it
+            raw = same_line if same_line.strip() else next_line
             printed = _NAME_STOP.split(raw)[0].strip(" .,")
             if len(printed) < 3:
                 continue
-            if fuzz.token_set_ratio(printed, normalise(name)) < NAME_SIMILARITY:
+            if not _same_person(printed, normalise(name), page.source == "ocr"):
                 return "The name on this report isn't this patient's."
     return None
+
+
+def _same_person(printed: str, name: str, ocr: bool) -> bool:
+    """Every printed word must be one of the patient's name words (an initial may stand for one).
+    A shared surname isn't enough: "Rahul Sharma" on Priya Sharma's upload is someone else's
+    report, and a surname alone ("Sharma") can't confirm whose it is."""
+    words = [w for w in re.split(r"[\s.]+", printed) if w]
+    own = name.split()
+    if len(words) < 2 and len(own) >= 2:
+        return False
+    least = OCR_WORD_SIMILARITY if ocr else WORD_SIMILARITY
+    for w in words:
+        if len(w) == 1:
+            if not any(o.startswith(w) for o in own):
+                return False
+        elif max(fuzz.ratio(w, o) for o in own) < least:
+            return False
+    return True

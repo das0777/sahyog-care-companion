@@ -19,6 +19,8 @@ MAX_BYTES = 20 * 1024 * 1024
 MAX_PAGES = 50
 SCAN_TEXT_CHARS = 200  # a page with an image and less text than this is a scan
 OCR_DPI = 300
+MAX_PAGE_PT = 1684  # A2's long side. A report page is A4 or letter; larger is refused
+MAX_OCR_PIXELS = 40_000_000  # a cap on the rendered image whatever the page claims
 OCR_TIMEOUT_S = 40
 OCR_LANGUAGES = "eng+hin"
 
@@ -58,7 +60,10 @@ def check_pdf(data: bytes) -> int:
                 raise Rejected("This PDF is password-protected. Please remove the password.") from e
             raise Rejected("This PDF is damaged and can't be read.") from e
         pages = len(pdf)
+        oversized = any(max(pdf[i].get_size()) > MAX_PAGE_PT for i in range(min(pages, MAX_PAGES)))
         pdf.close()
+    if oversized:
+        raise Rejected("This PDF has a page larger than A2, which can't be a report page.")
     if pages == 0:
         raise Rejected("This PDF has no pages.")
     if pages > MAX_PAGES:
@@ -66,13 +71,15 @@ def check_pdf(data: bytes) -> int:
     return pages
 
 
-def read_pages(data: bytes) -> list[PageText]:
+def read_pages(data: bytes, on_page=None) -> list[PageText]:
     with _PDFIUM:
         pdf = pypdfium2.PdfDocument(data)
         count = len(pdf)
     try:
         out = []
         for i in range(count):
+            if on_page:
+                on_page()  # renews the job's lease; raises if another worker has taken it
             with _PDFIUM:
                 text, image = _extract(pdf, i)
             if image is None:
@@ -97,7 +104,9 @@ def _extract(pdf, index: int) -> tuple[str, Image.Image | None]:
         has_image = any(True for _ in page.get_objects(filter=[pdfium_raw.FPDF_PAGEOBJ_IMAGE]))
         if chars >= SCAN_TEXT_CHARS or not has_image:
             return text, None
-        bitmap = page.render(scale=OCR_DPI / 72, grayscale=True)
+        width, height = page.get_size()
+        scale = min(OCR_DPI / 72, (MAX_OCR_PIXELS / max(width * height, 1)) ** 0.5)
+        bitmap = page.render(scale=scale, grayscale=True)
         image = bitmap.to_pil().copy()
         bitmap.close()
         return text, image
