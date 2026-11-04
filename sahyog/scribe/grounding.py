@@ -152,9 +152,7 @@ def _windows(name: str, doctor: str) -> tuple[list[str], bool]:
             if x.group(1) not in _NOT_NAMES
         ]
         stops += [
-            x.start()
-            for x in _DOSE_BEFORE_NAME.finditer(window)
-            if x.group(1) not in _NOT_NAMES
+            x.start() for x in _DOSE_BEFORE_NAME.finditer(window) if x.group(1) not in _NOT_NAMES
         ]
         out.append(window[: min(stops, default=len(window))])
     return out, negated
