@@ -1,0 +1,41 @@
+# s6: lint and tests
+commit: 9e69357  date: 2026-11-04T06:02Z
+image: sahyog-app:dev (MVP image, code mounted from this checkout)
+
+## ruff
+All checks passed!
+102 files already formatted
+ruff exit 0
+
+## pytest
+........................................................................ [ 22%]
+........................................................................ [ 44%]
+........................................................................ [ 67%]
+........................................................................ [ 89%]
+.................................                                        [100%]
+321 passed in 9.89s
+
+## make eval (guardrails on)
+Fetching 6 files:   0%|          | 0/6 [00:00<?, ?it/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Fetching 6 files:  17%|█▋        | 1/6 [00:00<00:01,  3.19it/s]Fetching 6 files:  67%|██████▋   | 4/6 [00:02<00:01,  1.35it/s]Fetching 6 files:  83%|████████▎ | 5/6 [00:04<00:01,  1.01s/it]Fetching 6 files: 100%|██████████| 6/6 [01:14<00:00, 20.70s/it]Fetching 6 files: 100%|██████████| 6/6 [01:14<00:00, 12.45s/it]
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/app/sahyog/evals/run.py", line 356, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/app/sahyog/evals/run.py", line 80, in main
+    scribe_rows, scribe_details = w3_paths(guardrails)
+                                  ^^^^^^^^^^^^^^^^^^^^
+  File "/app/sahyog/evals/w3_paths.py", line 66, in w3_paths
+    appt, encounter = _encounter(sessions)
+                      ^^^^^^^^^^^^^^^^^^^^
+  File "/app/sahyog/evals/w3_paths.py", line 162, in _encounter
+    r = reserve_slot(
+        ^^^^^^^^^^^^^
+  File "/app/sahyog/scheduling/service.py", line 194, in reserve_slot
+    raise AlreadyBooked(slot_id)
+sahyog.scheduling.service.AlreadyBooked: D0001-20261113-16
+
+## make eval GUARDRAILS=off (must fail)
+exit 1 (non-zero means the gates caught it)
