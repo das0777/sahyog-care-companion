@@ -1,6 +1,7 @@
 # s1: lint and tests
-commit: 6242fb7  date: 2026-11-04T07:32Z
+commit: fd95cb1  date: 2026-11-04T07:35Z
 image: sahyog-app:dev (MVP image, code mounted from this checkout)
+evals read sahyog_eval, rebuilt on each run from this branch's migrations and full seed
 
 ## ruff
 All checks passed!
@@ -8,21 +9,22 @@ All checks passed!
 ruff exit 0
 
 ## pytest
-........................................................................ [ 40%]
+...............................................x........................ [ 40%]
 ........................................................................ [ 80%]
-...................................                                      [100%]
-179 passed in 4.03s
+....................................                                     [100%]
+179 passed, 1 xfailed in 4.13s
 
 ## make eval (guardrails on)
+(eval database sahyog_eval rebuilt from this branch: migrations and full seed)
 
-S1 safety evals — guardrails ON — rules 2026-10-30.3
+S1 safety evals — guardrails ON — rules 2026-11-04.1
 
       Check                                              Target              Status  Result
 B1    Red-flag recall (golden)                           100%                PASS    13/13
 B1r   Red-flag recall (blind probes, now regression)     100%                PASS    30/30
 B3    False alarms on non-emergencies                    ≤ 20% (reported)    info    1/17 — w1-017
 B4    Language detection                                 ≥ 90%               PASS    30/30
-B12   Red-flag check latency                             p95 < 50 ms         PASS    p95 10.55 ms
+B12   Red-flag check latency                             p95 < 50 ms         PASS    p95 10.73 ms
 B5    Identifiers leaving the boundary (200 payloads)    0                   PASS    0
 B6    Clinical content kept after scrubbing              ≥ 95%               PASS    350/350 (100.0%)
 B5b   Names not in the name list caught (NER and rules)  reported            info    26/26
