@@ -105,7 +105,8 @@ NEGATION_WORDS = (
     r"no|non|not|never|no longer|don't|dont|do not|deny|denies|denied|without|negative|absent"
     r"|avoid|avoids|avoided|stop|stops|stopped|stopping|discontinue|discontinues|discontinued"
     r"|discontinuing|hold|holds|held|holding|withhold|withholds|withheld|cease|ceases|ceased"
-    r"|skip|skips|skipped|band|mat|nahi|nahin"
+    r"|skip|skips|skipped|omit|omits|omitted|omitting|withdraw|withdraws|withdrew|withdrawn"
+    r"|withdrawing|pause|pauses|paused|pausing|band|mat|nahi|nahin"
 )
 _NEGATION = re.compile(rf"\b(?:{NEGATION_WORDS})\b|n't\b")
 # A full stop ends a sentence; the point in "2.5 mg" doesn't
@@ -143,6 +144,14 @@ def _windows(name: str, doctor: str) -> tuple[list[str], bool]:
         # Only the first dose after the name is this medicine's: "amlodipine 5 mg, Telma 40 mg"
         numbers = list(re.finditer(r"\d+(?:\.\d+)?", window))
         stops += [numbers[1].start()] if len(numbers) > 1 else []
+        # ...and a dose that sits in front of another name is that name's, even when it's the
+        # only number: "Continue amlodipine, Telma 40 mg" and "Give 5 mg amlodipine, 40 mg telma"
+        stops += [x.start() for x in _BRAND_BEFORE_DOSE.finditer(window)]
+        stops += [
+            x.start()
+            for x in _DOSE_BEFORE_NAME.finditer(window)
+            if x.group(1) not in _NOT_NAMES
+        ]
         out.append(window[: min(stops, default=len(window))])
     return out, negated
 
@@ -225,6 +234,14 @@ _NUMBER_WORD = re.compile(
 )
 _NEGATING = _NEGATION  # the same list as the medicine check
 _BRAND_BEFORE_DOSE = re.compile(r"\b([a-z]{3,})\s+\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml|iu|units?)?\b")
+# A dose followed by a word: a name, unless the word is a route, frequency or unit (a gap, if wrong)
+_DOSE_BEFORE_NAME = re.compile(r"\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml|iu|units?)?\s+([a-z]{3,})\b")
+_NOT_NAMES = frozenset(
+    "twice thrice once daily nightly weekly hourly times time day days week weeks month months "
+    "morning noon evening night bedtime at for with after before on in as and or the then oral "
+    "orally tab tabs tablet tablets capsule capsules drop drops sos prn stat every needed if when "
+    "until till to per of is apply inhale local topical syrup cream sachet units unit".split()
+)
 _DRUG_SHAPE = re.compile(
     r"\b\w+(?:pril|sartan|statin|olol|xaban|parin|dipine|prazole|mycin|cillin|floxacin|cycline"
     r"|gliptin|glitazone|formin|sprin)\b"
