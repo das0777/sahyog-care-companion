@@ -18,8 +18,8 @@ Every task, placed on a rung by four questions: (1) is the rule fully known and 
 | Dictation to a SOAP note | No | No | **An unsaid drug or dose: patient harm** | The doctor, every time | 2, then 4 | W3 `draft_soap`, `extract_meds`, grounding in code |
 | Does this question need a doctor | No | No | Advice given, possibly unnoticed | The desk or doctor | 2 | Word checks (a backstop: 6/25 unseen) plus the model flag |
 | Choose among six candidate doctors | Partly | Yes | A slower slot, noticed by the patient | The patient picks | 3 → **built as 1 + 4** | Shortlist in code, and the patient picks at an interrupt. No agentic loop was needed |
-| Sign the clinical note | No | — | **Patient harm, legal record** | The doctor | 4 | The W3 `review` interrupt. The API refuses signing with gaps open |
-| Pick a substitute medicine | No | — | **Patient harm** | The doctor | 4 | Not automated. Stock is flagged, and the doctor chooses |
+| Sign the clinical note | No | Not applicable: a person decides | **Patient harm, legal record** | The doctor | 4 | The W3 `review` interrupt. The API refuses signing with gaps open |
+| Pick a substitute medicine | No | Not applicable: a person decides | **Patient harm** | The doctor | 4 | Not automated. Stock is flagged, and the doctor chooses |
 
 ## Six tasks found during the build
 

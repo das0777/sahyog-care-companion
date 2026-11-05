@@ -8,7 +8,7 @@
 
 | Criterion | On-premise | Private cloud, India | Public cloud + public LLM | **Hybrid** |
 |---|---|---|---|---|
-| Identified data stays in India | Strong | Strong | **Weak.** Fails the addendum outright | Strong: the build scrubs at one gateway and refuses identified system prompts |
+| Identified data stays in India | Strong | Strong | **Weak.** Fails the addendum outright | Strong for the patient's own identifiers: the build scrubs at one gateway and refuses identified system prompts. **Other people's names in free text leak today** |
 | Access to current models | Weak. The Ollama adapter was never verified on a server | Fair | Strong | Strong, for de-identified calls |
 | Operations burden | Weak | Fair | Strong | Fair: two estates |
 | Cost at 9,000 a day | Fair | Fair | Fair | Fair. Model cost was about $0.017 a consultation in the MVP; infrastructure is unpriced |

@@ -4,7 +4,7 @@ Each row has an owner (a role), how it's validated, a fallback, and **what the b
 
 | # | Assumption | Owner | How it's validated | Fallback if it fails | What the build found |
 |---|---|---|---|---|---|
-| A1 | One slot maps to exactly one appointment | Head of front desk | Ask whether overbooking is practised | Model capacity per block | **Failed by design:** consultation length is unpredictable, so the build uses blocks with capacity and token numbers |
+| A1 | One slot maps to exactly one appointment | Head of front desk | Ask whether overbooking is practised | Model capacity per block | **Not relied on, and not yet asked:** consultation length is unpredictable, so the build uses blocks with capacity and token numbers. The front desk hasn't confirmed (D2 question 4) |
 | A2 | Patients type symptoms in English, Hinglish or Hindi | Patient experience lead | Synthetic intakes in each style through matching | A language-detection node | Built with detection. Marathi isn't supported (S1 review) |
 | A3 | A doctor reviews the draft during the consultation | Chief medical officer | Role-play five consultations | Queue drafts for end-of-session review | Not validated with a doctor. The draft waits at an interrupt either way |
 | A4 | The nightly stock CSV is complete before clinics open | Pharmacy lead | File timestamps across a week | Show stock age; mark unknown when stale | Only a synthetic CSV was used. Not validated |
