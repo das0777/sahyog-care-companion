@@ -69,6 +69,29 @@ Added as each pull request merges.
 - **Carried to S2:** never contact a synthetic patient (from #1); keep Devanagari known-patient prompts in-region or seed a Devanagari name; a fixed "N or more tablets" rule with these wordings as golden cases.
 - **Recorded risks, fix before real data:** over-scrubbing of capitalised symptom and test names (the MVP later added C22 and F22); ABHA addresses and landlines leak; B5 is partly circular; no Marathi; Ollama errors escape the fallback; some false alarms and typo misses; the guardrails-off run doesn't cover B6 and B7; no warning when the database holds an older rules version.
 
+### #11 · S2 W1 Find my doctor, with three carried safety items
+
+> **Added late (2026-11-05):** this entry was written and pushed to the `s2-w1` branch just after #11 was merged, so it never reached `main`. It's restored here unchanged.
+
+| | |
+|---|---|
+| **Pull request** | [#11](https://github.com/das0777/sahyog-care-companion/pull/11), ported from the MVP at `s2-accepted` on top of the reviewed S0 and S1, plus three items earlier reviews made conditions for S2 |
+| **Review** | A new independent AI review agent (Claude, fresh), run by the coding agent at the owner's request. Three rounds, on the pull request. The reviewer reproduced problems on a disposable database with its own scripts. The owner didn't read the code line by line |
+| **CI** | Still not running on this repo. Lint, tests and evals ran locally on the fixed code (`evals/runs/s2-tests.txt`) |
+
+- **Agent proposed:** the MVP's W1, plus the three carried items: `notify.deliver` refuses synthetic patients; `patient.name_local` stores, seeds and scrubs the Devanagari name; `overdose_by_count` is a fixed rule for counted overdoses.
+- **Review round 1: changes needed, four must-fix items.** The reviewer found the safety order, identity checks and booking basics sound.
+  - *The desk override reason was required but thrown away,* so overrides were audited without a reason. **Fixed:** `audit_event.reason`.
+  - *Two desk moves at once double-booked the patient.* The reviewer reproduced it: two active bookings and two SMS rows. **Fixed:** the override locks and re-reads the booking. A test runs the interleaving with two sessions.
+  - *The overdose rule missed common forms* (a second count, "500mg" between count and unit, no unit, more Hinglish verbs). **Fixed:** largest count, wider pattern, drug names as units.
+  - *The Devanagari name was removed as a substring,* cutting "बलगम" (phlegm) and "आराम". Faker's honorifics were also being seeded as names. **Fixed:** whole-word matching, and first plus last name only.
+- **Review round 2: changes needed, one item.** The agent's round-1 fix added a 4-letter minimum for name parts, which let 3-letter names like रवि and सेन through on their own (286 of 1,000 seeded patients). The reviewer called it redundant once matching was whole-word. **Fixed:** the minimum is replaced by a stoplist of name parts that are everyday words, and the danda "।" no longer blocks a match. A new test checks every seeded patient's name.
+- **Review round 3: OK to merge.** The reviewer checked all 1,000 seeded patients.
+- **Where the agent was wrong:** the MVP's desk override lost its reason and could double-book under concurrency; the first overdose rule and the first Devanagari scrub were each too narrow; and **the agent's own fix in round 1 introduced a new leak**, caught only because the reviewer re-ran its probes.
+- **Test that catches it now:** `test_two_desk_moves_at_once_leave_one_booking`, the reason assert in the cancel test, `test_an_overdose_by_count_is_caught` (nine wordings) with `test_a_normal_dose_does_not_flag`, `test_devanagari_name_parts_never_cut_into_other_words`, `test_a_short_devanagari_name_on_its_own_is_removed`, `test_every_seeded_devanagari_name_is_removed`, and `test_a_synthetic_patient_is_never_contacted`. 261 passed.
+- **Recorded risks, fix before real data:** the second pass can fall back to an unmeasured in-region model; the match model sees scrubbed text before the safety check clears; a replayed booking key can return a cancelled booking as "booked"; `IdempotencyConflict` becomes a generic 503; any desk user can close another's ticket without a reason; `notify.deliver` isn't called anywhere yet (no sender exists); 18 seeded patients have a stoplisted name part sent when written alone; no egress eval covers `name_local` (unit tests do).
+- **Eval integrity, recorded:** `MATCH_SYSTEM` quotes three test cases word for word, so "vague asked 10/10" is partly measured on the prompt's own examples; probe 3's 15/15 in `measurements.jsonl` lacks its "not blind" caveat.
+
 ### #12 · S3 W2 Ingest
 
 | | |
@@ -131,6 +154,14 @@ Added as each pull request merges.
 - **Where the agent was wrong:** the MVP's grounding let unsaid doses, near-miss names, negated drugs and added drugs reach a signed note, and its evals couldn't show it. **Three of the agent's own fixes introduced new gaps** (a negation rule that dropped real prescriptions; a comma change that leaked doses; two lists that drifted apart), each caught by the reviewer's new inputs.
 - **Test that catches it now:** in `tests/test_scribe.py`, `test_a_dose_must_sit_beside_its_own_medicine`, `test_a_similar_or_misspelled_name_is_not_the_doctors`, `test_a_negated_medicine_is_not_prescribed`, `test_a_soap_line_cant_add_to_its_quote`, `test_a_quote_must_be_the_doctors_exact_words`, `test_a_line_cant_drop_a_negation_its_quote_holds`, `test_a_negation_anywhere_in_the_sentence_makes_the_doctor_confirm`, `test_a_real_prescription_near_a_negation_is_kept_for_the_doctor`, `test_a_dose_cant_come_from_the_next_drug_in_the_sentence`, `test_a_line_cant_reverse_the_doctor`, `test_withhold_cease_and_skip_make_the_doctor_confirm`, `test_a_decimal_dose_isnt_split_at_its_point`, and the edit-path tests. 422 passed and 7 expected failures on the follow-up.
 - **Recorded risks, fix before real data:** a second transcript is allowed on an already-signed encounter; two threads per encounter can both sign; the transcript panel is collapsed and nothing makes the doctor read it, which is the only defence against a misheard "NON diabetic"; the audio sweep keys on the encounter's start, and a re-upload after a sweep is never swept; a 180 s lease is short for CPU transcription; stored transcripts have no retention limit; the drug-class list is narrow ("antiemetic", "inhaler"); G7 resumes the graph directly rather than through the API; G12 checks only the Latin name.
+
+### #15 · S5 follow-up
+
+> Recorded late (2026-11-05), from the pull request's own review.
+
+- **What it held:** the two must-fix items open when #14 merged (a dose taken from the next drug; two negation lists that disagreed), plus #14's log entry.
+- **Review:** one round by the same independent AI reviewer as #14, posted on the pull request. **Verdict: changes needed**, with two must-fix items: a dose could still come from the next drug when the medicine had no dose of its own, or when the dose came before the name; and "omit", "withdraw" and "pause" weren't in the negation list.
+- **What happened next:** a fix was pushed to the branch (`2012230`, "a dose stops at the next name; omit, withdraw and pause make the doctor confirm"), and **#15 was merged without that fix being re-reviewed**. A further fix (`f0cab78`) went into S6's pull request. **Neither has had a posted review.** They're included in the S7 review pull request's scope so that a reviewer checks them.
 
 ### #16 · S6 Thin UI
 
