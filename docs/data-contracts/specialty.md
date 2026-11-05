@@ -14,3 +14,20 @@
 - red_flag_rules.global.concepts is non-empty, and every row carries the same `version`
 - every combo names only signal or concept ids that exist
 - reviewed_by is null until a clinician signs off
+
+## Freshness
+
+Changes with the catalogue; rules versioned (`version:` in red_flags.yaml).
+
+## Consumers, and what breaks for each
+
+W1 match and red-flag gate. If the schema changes: empty or old rules: the gate refuses to answer (RulesNotLoaded), so triage goes to the desk.
+
+## Changing the schema
+
+A new Alembic migration, never an edit to an applied one. A breaking change (rename, drop, new meaning) needs an ADR and a version bump here first.
+
+## Check thresholds
+
+Every check above has a threshold of **0 violations**. Uniqueness and ranges are enforced by the database where possible; the rest by `tests/test_schema.py`, `tests/test_seed.py` and the seed.
+
