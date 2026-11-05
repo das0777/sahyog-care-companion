@@ -139,7 +139,7 @@ class _Nodes:
     def injection_scan(self, state: IngestState) -> IngestState:
         keep, quarantined = [], []
         for c in state["chunks"]:
-            why = scan.flags_injection(c.text) if self.d.scan_enabled else None
+            why = scan.flags_injection(c.text, state["patient_id"]) if self.d.scan_enabled else None
             if why:
                 quarantined.append((c, why))
             else:

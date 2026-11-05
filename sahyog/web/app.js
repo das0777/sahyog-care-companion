@@ -175,6 +175,9 @@ async function appointments(pane) {
       : el("p", { class: "muted" }, "Nothing booked yet.")));
 }
 
+// Report names for citations, filled by the report list: "Report from Nov 5", not an id
+let reportNames = {};
+
 function reports(pane) { uploadCard(pane); askCard(pane, session.id); }
 
 function uploadCard(pane) {
@@ -184,12 +187,16 @@ function uploadCard(pane) {
   const list = el("div", { "aria-live": "polite" });
   const refresh = async () => {
     const docs = await api("/w2/documents");
+    reportNames = Object.fromEntries(docs.map((d) => [d.doc_id, `Report from ${when(d.uploaded_at)}`]));
+    // Indexed with nothing searchable means every part was set aside for the desk to review
+    const nothing = (d) => d.status === "indexed" && !d.chunks_indexed && d.chunks_quarantined;
     put(list, (docs.length ? docs.map((d) => el("div", { class: "ticket" },
-      el("span", { class: `pill ${d.status}` }, d.status), " ",
+      el("span", { class: `pill ${nothing(d) ? "held" : d.status}` }, nothing(d) ? "held for review" : d.status), " ",
       el("span", {}, `Report from ${when(d.uploaded_at)}`), el("br"),
       el("span", { class: "muted small" }, d.pages_total == null ? "Waiting to be read" :
         `${d.pages_total} pages, ${d.pages_ocr} read from scans, ${d.chunks_indexed ?? 0} parts searchable` +
         (d.chunks_quarantined ? `, ${d.chunks_quarantined} set aside` : "")),
+      nothing(d) ? el("p", { class: "small" }, "Nothing in this report can be searched yet. The front desk is reviewing the text that was set aside, so questions are answered from your other reports only.") : null,
       d.reason ? el("p", { class: "small" }, d.reason) : null))
       : [el("p", { class: "muted small" }, "No reports uploaded yet.")]));
     return docs;
@@ -232,7 +239,7 @@ function answerView(out, r) {
   const style = { emergency: "emergency", handed_to_desk: "warn", blocked: "warn", refused: "warn", not_found: "info" }[r.status];
   if (style) { put(out, el("div", { class: `alert ${style}`, role: "alert" }, r.answer)); return; }
   const lines = (r.sentences || []).map((s) => el("p", {}, s.text, " ",
-    ...s.citations.map((c) => el("span", { class: "cite" }, `(report ${c.doc_id.slice(0, 8)}, page ${c.page}${c.source === "ocr" ? ", scan" : ""}) `))));
+    ...s.citations.map((c) => el("span", { class: "cite" }, `(${reportNames[c.doc_id] || `report ${c.doc_id.slice(0, 8)}`}, page ${c.page}${c.source === "ocr" ? ", scan" : ""}) `))));
   put(out, el("div", { class: "alert info" }, lines),
     r.scan_warning ? el("div", { class: "alert warn" }, r.scan_warning) : null);
 }
