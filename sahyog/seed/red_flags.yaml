@@ -11,7 +11,7 @@
 # combos    fire when every group in `all_of` has a match and, if `any_modifier` is set,
 #           at least one of those modifiers holds.
 
-version: 2026-11-04.2
+version: 2026-11-04.3
 reviewed_by: null
 
 global:
@@ -261,7 +261,7 @@ global:
 
   signals:
     - id: ingested
-      synonyms: [took, taken, swallowed, ate, kha li, kha liya, kha liye, kha lee, le li, le liya, खा ली, खा लिया, खा लीं]
+      synonyms: [took, taken, swallowed, ate, overdosed, kha li, kha liya, kha liye, kha lee, khayi, khaye, khai, kha gaya, kha gayi, kha gaye, le li, le liya, nigal li, nigal liya, खा ली, खा लिया, खा लीं, खा गया, खा गई, निगल ली]
     - id: arm_jaw_pain
       synonyms: [left arm pain, ache left arm, pain in left arm, arm pain, ache in arm, jaw pain, pain in jaw, radiating to jaw, radiating to arm, baaju mein dard, haath mein dard, जबड़े में दर्द]
     - id: chest_discomfort

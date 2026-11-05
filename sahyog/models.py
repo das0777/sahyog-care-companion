@@ -293,6 +293,7 @@ class AuditEvent(Base):
     action: Mapped[str] = mapped_column(String(16))
     outcome: Mapped[str] = mapped_column(String(8))
     trace_id: Mapped[str] = mapped_column(String(40))
+    reason: Mapped[str | None] = mapped_column(String(300))  # why a person changed something
     at: Mapped[datetime] = _created_at()
 
     __table_args__ = (

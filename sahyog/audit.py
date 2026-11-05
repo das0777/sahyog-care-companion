@@ -32,7 +32,14 @@ def record(
 
 
 def add(
-    session: Session, ctx: AuthContext, *, table: str, record_id: str, action: str, outcome: Outcome
+    session: Session,
+    ctx: AuthContext,
+    *,
+    table: str,
+    record_id: str,
+    action: str,
+    outcome: Outcome,
+    reason: str | None = None,
 ) -> None:
     session.add(
         AuditEvent(
@@ -44,5 +51,6 @@ def add(
             action=action,
             outcome=outcome.value,
             trace_id=ctx.trace_id,
+            reason=reason,
         )
     )

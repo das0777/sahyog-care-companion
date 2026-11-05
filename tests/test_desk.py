@@ -104,6 +104,7 @@ def test_override_cancel_frees_the_place_writes_audit_and_sms_and_closes_the_tic
         sms = s.execute(select(SmsOutbox).where(SmsOutbox.appt_id == r.appt_id)).scalars().one()
         t = s.execute(select(DeskTicket).where(DeskTicket.appt_id == r.appt_id)).scalars().one()
     assert audit.action == "override:cancel" and audit.actor_id == "DESK01"
+    assert audit.reason == "patient rang to cancel"
     assert sms.template == "booking_cancelled"
     assert t.status == "closed" and t.owner == "DESK01"
 
@@ -148,3 +149,48 @@ def test_override_needs_a_reason_the_desk_role_and_an_active_booking(client):
     assert client.post(url, json=body, headers=DESK | _key()).status_code == 200
     # Already cancelled: a new key is a new request, and it is refused
     assert client.post(url, json=body, headers=DESK | _key()).status_code == 409
+
+
+def test_two_desk_moves_at_once_leave_one_booking():
+    """From the S2 review: B read the booking before A's move committed, then moved it again."""
+    import threading
+
+    from sahyog.api.desk import OverrideIn, _apply_override
+    from sahyog.auth import AuthContext
+    from sahyog.scheduling.service import NotActive
+
+    r = _booking(40, patient="P0031")
+    with get_sessionmaker()() as s:
+        x, y = s.scalars(select(Slot.slot_id).order_by(Slot.slot_id).offset(41).limit(2)).all()
+    ctx = AuthContext("DESK01", Role.DESK, "operations", "t")
+    first = get_sessionmaker()()
+    first.begin()
+    _apply_override(
+        first, ctx, r.appt_id, OverrideIn(action="move", slot_id=x, reason="first move"), "ka"
+    )
+    outcome = {}
+
+    def second():
+        try:
+            with get_sessionmaker().begin() as s:
+                body = OverrideIn(action="move", slot_id=y, reason="second move")
+                _apply_override(s, ctx, r.appt_id, body, "kb")
+            outcome["result"] = "moved"
+        except NotActive:
+            outcome["result"] = "refused"
+
+    t = threading.Thread(target=second)
+    t.start()
+    t.join(1)
+    assert t.is_alive()  # waiting on the first move's lock
+    first.commit()
+    first.close()
+    t.join(10)
+    assert outcome["result"] == "refused"
+    with get_sessionmaker()() as s:
+        active = s.scalars(
+            select(Appointment).where(
+                Appointment.patient_id == "P0031", Appointment.status == "booked"
+            )
+        ).all()
+    assert len(active) == 1

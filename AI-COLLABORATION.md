@@ -71,7 +71,7 @@ Added as each pull request merges.
 
 ### #11 · S2 W1 Find my doctor, with three carried safety items
 
-> **Added late (2026-11-05):** this entry was written and pushed to the `s2-w1` branch just after #11 was merged, so it never reached `main`. It's restored here unchanged.
+> **Corrected 2026-11-05, from the S7 review on #18.** #11 was merged at 07:52 UTC, **before** the agent pushed its round-1 fixes (07:53). The agent didn't check the pull request's state and carried on: rounds 2 and 3 below happened on an already-merged pull request, and this entry was pushed to its branch afterwards. **So none of these fixes reached `main` until #18**, which cherry-picks them as `6e373f3` and `3e9b76f` (originally `ead44e0`, `e6b51e0`). The test counts below are from the old `s2-w1` branch; #18's run is 482 passed. Until then, the desk double-booking, the lost override reason, the narrow overdose rule and the substring Devanagari scrub were all live on `main`.
 
 | | |
 |---|---|
@@ -174,3 +174,22 @@ Added as each pull request merges.
 - **Where the agent was wrong:** "Sign out" showed before signing in, and "null" printed on the review page (from the MVP). In this build, the S5 reviewer's re-check found a regression (route and frequency words ending a medicine's dose) that had been fixed on `s5-followup` after #15 merged. That fix is applied here as a separate commit.
 - **Recorded risks, fix before real data:** the transcript panel needs a confirmation gate (should-fix 1 above); the dev JWT secret must be rotated for shared environments; `DEV_LOGIN=true` in docker-compose must not carry into production.
 
+### #17 · S7 Assurance, reviewed afterwards in #18
+
+| | |
+|---|---|
+| **Pull requests** | [#17](https://github.com/das0777/sahyog-care-companion/pull/17), S7 ported from the MVP. **It was merged with no review posted.** [#18](https://github.com/das0777/sahyog-care-companion/pull/18) is where it was reviewed, along with the unreviewed S5 fixes from #15 |
+| **Review** | A new independent AI review agent (Claude, fresh), run by the coding agent. Posted on #18. It ran probes against the code and the golden set. The owner didn't read the code line by line |
+| **Set aside** | A local draft of this entry, by another session, described a review with no trace on GitHub, and a 40-input measurement with no inputs or script. It wasn't pushed or used |
+
+- **What held:** the circuit breaker fails safe to the desk and recovers (one trial after the pause); traces hold no prompt or reply text; the MCP server takes identity only from the token and books only the token's patient; the S5 fixes from #15 handle the previous reviewer's open inputs.
+- **Round 1 on #18: changes needed, three must-fix items.**
+  - *#11's review fixes had never reached `main`* (see #11's entry). **Fixed:** cherry-picked into #18, with conflicts resolved, and the full suite passes.
+  - *The S5 fix lost real doses:* any word after a dose was taken as the next medicine's name, so the golden set's doctor doses kept fell from 21/22 to 19/22 ("Pantoprazole 40 mg subah khali pet"). Some leaks also remained ("Amlodipine, 40 mg of telma"), and "suspend", "refrain", "cut out" and "defer" were missed. **Fixed:** a dose belongs to the next medicine only when a real medicine name follows it (one the model listed, a known molecule or a drug-shaped word), plus a word right before a dose names it. The four verbs are added. A new test runs the whole golden set: **21/22 again**, and the one loss was already a gap.
+  - *The docs presented the MVP's results as this build's:* live W2 and W3 runs, Gemini, the load test, costs, tags that only exist in the MVP, "334 tests", and S4 to S6 marked "Accepted 2026-10-30". **Fixed:** every ported stage doc and the final report now opens by saying it's the MVP's and wasn't re-run, and S7's results heading says so.
+- **This build's measurement** (the reviewer's unseen set, `evals/w2/unseen/`): advice questions caught 6/25 (0/7 in Hindi), read-back questions wrongly refused 2/10, clinical answers blocked 19/25, read-back answers wrongly blocked 1/10. The word checks stay a backstop.
+- **Where the agent was wrong:** it didn't check whether #11 was already merged, so a whole review's fixes stayed off `main` for a day; its S5 fix traded one leak for lost doses; and S7 shipped MVP numbers under this build's name.
+- **Test that catches it now:** `test_the_golden_set_keeps_every_dose_the_doctor_said`, `test_a_dose_before_another_medicines_name_is_that_ones`, `test_a_word_after_a_dose_isnt_another_medicine`, `test_suspend_refrain_cut_out_and_defer_make_the_doctor_confirm`, and S2's restored tests.
+- **Recorded risks:** no test drives an open circuit through a graph to the desk; the gateway logs 200 characters of a provider's error (an in-region model could echo unscrubbed text); a bad MCP token fails before any audit row, and the "allowed" row is written before a booking that may fail; the worker heartbeat runs on its own thread, so `/health` can say "ok" after the job loops die; a brand after a dose that the model didn't list can still lend its dose, capitalised or not ("Continue amlodipine, 40 mg Telma at night"); "interrupt" isn't in the negation list.
+- **#18 was itself merged at 05:09 UTC, before its review was posted**, so only its first commit (the log entries) reached `main`. The reviewed fixes landed through [#19](https://github.com/das0777/sahyog-care-companion/pull/19), unchanged from #18's reviewed head. From here on, the agent confirms the merged head matches the reviewed head before writing any log entry.
+- **Round 2 on #18: OK to merge.** The reviewer re-ran its probes: S2's fixes are back, the golden set keeps 21/22, the leaks close when the model lists both medicines, and the docs carry the MVP labels.

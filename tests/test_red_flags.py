@@ -131,6 +131,12 @@ def test_an_engine_with_no_rules_refuses_to_answer():
         "he took 15 sleeping tablets",
         "maine 30 goliyan kha li",
         "मैंने 20 गोलियां खा लीं",
+        # From the S2 review
+        "took 2 tablets at 8 and then 12 more tablets at night",
+        "I swallowed 15 paracetamol 500mg tablets",
+        "took 20 paracetamol",
+        "maine 20 goliyan khayi",
+        "usne 25 goli kha gaya",
     ],
 )
 def test_an_overdose_by_count_is_caught(engine, text):

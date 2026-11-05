@@ -181,15 +181,21 @@ class Scrubber:
 # ---- passes ------------------------------------------------------------------------------
 
 
+DEVANAGARI_LETTERS = "\u0900-\u0963\u0970-\u097f"
+# Name parts that are also common words in a patient's message: removed only within the full name
+DEVANAGARI_WORD_NAMES = frozenset({"काम", "बल", "मन", "दिन", "सुख", "आशा", "दया", "प्रेम", "शांति"})
+
+
 def _known(text: str, p: KnownIdentity, today: date) -> list[Span]:
     spans = []
     if p.name_local:
-        # Devanagari has no case, so the full name and each part of two letters or more are removed
-        for form in [p.name_local.strip(), *p.name_local.split()]:
-            if len(form) >= 2:
-                spans += [
-                    Span(m.start(), m.end(), "PERSON") for m in re.finditer(re.escape(form), text)
-                ]
+        # Whole Devanagari words only: "बल" must not take the start of "बलगम" (phlegm). A single
+        # part that is also an everyday word ("काम", work) is removed only as part of the full name.
+        # The boundary is Devanagari letters and signs, not the danda "।" or digits
+        parts = [w for w in p.name_local.split() if w not in DEVANAGARI_WORD_NAMES]
+        for form in [p.name_local.strip(), *parts]:
+            pattern = rf"(?<![{DEVANAGARI_LETTERS}]){re.escape(form)}(?![{DEVANAGARI_LETTERS}])"
+            spans += [Span(m.start(), m.end(), "PERSON") for m in re.finditer(pattern, text)]
     full = re.escape(p.name.strip())
     spans += [Span(m.start(), m.end(), "PERSON") for m in re.finditer(full, text, re.IGNORECASE)]
     for part in p.name.split():

@@ -106,7 +106,8 @@ NEGATION_WORDS = (
     r"|avoid|avoids|avoided|stop|stops|stopped|stopping|discontinue|discontinues|discontinued"
     r"|discontinuing|hold|holds|held|holding|withhold|withholds|withheld|cease|ceases|ceased"
     r"|skip|skips|skipped|omit|omits|omitted|omitting|withdraw|withdraws|withdrew|withdrawn"
-    r"|withdrawing|pause|pauses|paused|pausing|band|mat|nahi|nahin"
+    r"|withdrawing|pause|pauses|paused|pausing|suspend|suspends|suspended|suspending|refrain"
+    r"|refrains|refrained|cut out|defer|defers|deferred|band|mat|nahi|nahin"
 )
 _NEGATION = re.compile(rf"\b(?:{NEGATION_WORDS})\b|n't\b")
 # A full stop ends a sentence; the point in "2.5 mg" doesn't
@@ -124,7 +125,7 @@ def _units(text: str) -> str:
     return _UNIT_SPACE.sub(r"\1 \2", text)
 
 
-def _windows(name: str, doctor: str) -> tuple[list[str], bool]:
+def _windows(name: str, doctor: str, others: tuple[str, ...] = ()) -> tuple[list[str], bool]:
     """What the doctor said about this medicine, from each whole-word mention to the end of its
     clause or the next medicine; and whether any sentence mentioning it holds a negation."""
     said = _units(normalise(doctor))
@@ -144,13 +145,27 @@ def _windows(name: str, doctor: str) -> tuple[list[str], bool]:
         # Only the first dose after the name is this medicine's: "amlodipine 5 mg, Telma 40 mg"
         numbers = list(re.finditer(r"\d+(?:\.\d+)?", window))
         stops += [numbers[1].start()] if len(numbers) > 1 else []
-        # ...and a dose that sits in front of another name is that name's, even when it's the
-        # only number: "Continue amlodipine, Telma 40 mg" and "Give 5 mg amlodipine, 40 mg telma"
+        # ...and a dose that sits in front of another medicine's name is that one's, even when it's
+        # the only number: "Amlodipine, 40 mg of telma". "Another medicine" means one the model
+        # listed, a listed molecule or a drug-shaped word, not any word after a dose (from the S7
+        # review: "Pantoprazole 40 mg subah khali pet" lost its dose to "subah")
+        names = [normalise(o) for o in others if normalise(o) != normalise(name)]
+        alts = "|".join(
+            [re.escape(n) for n in names] + KNOWN_MOLECULES + [_DRUG_SHAPE.pattern[2:-2]]
+        )
         stops += [
-            x.start() for x in _BRAND_BEFORE_DOSE.finditer(window) if x.group(1) not in _NOT_NAMES
+            x.start()
+            for x in re.finditer(
+                rf"\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml|iu|units?)?\s*(?:of\s+)?(?:{alts})(?![a-z])",
+                window,
+            )
         ]
         stops += [
-            x.start() for x in _DOSE_BEFORE_NAME.finditer(window) if x.group(1) not in _NOT_NAMES
+            x.start() for n in names for x in re.finditer(rf"(?<![a-z]){re.escape(n)}", window)
+        ]
+        # A word right before a dose names it, even if the model didn't list it ("Telma 40 mg")
+        stops += [
+            x.start() for x in _BRAND_BEFORE_DOSE.finditer(window) if x.group(1) not in _NOT_NAMES
         ]
         out.append(window[: min(stops, default=len(window))])
     return out, negated
@@ -183,7 +198,7 @@ def ground_medicines(raw: list[dict], doctor: str) -> GroundedMeds:
             continue
         # From the S5 review: the name itself must be said, as a whole word (no fuzzy match:
         # "valsartan" isn't "losartan"), and not in a negated mention ("do not give metformin")
-        windows, negated = _windows(name, doctor)
+        windows, negated = _windows(name, doctor, tuple(r["name"] for r in raw))
         if not windows and not _is_class(key):
             out.dropped.append(name)
             continue

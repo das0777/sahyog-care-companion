@@ -117,6 +117,7 @@ def override(
                     record_id=str(appt_id),
                     action=f"override:{body.action}",
                     outcome=audit.Outcome.ALLOWED,
+                    reason=body.reason,
                 )
                 return 200, out
         except service.SlotNotFound as e:
@@ -135,7 +136,14 @@ def override(
 
 def _apply_override(session, ctx, appt_id, body: OverrideIn, key: str) -> dict:
     # Reserve before releasing, so a failed move leaves the patient's booking as it was
-    appt = session.get(Appointment, appt_id)
+    # Locked and re-read: two desk users changing one booking at once take turns, and the second
+    # sees the first's result (cancelled) instead of a stale "booked"
+    appt = session.execute(
+        select(Appointment)
+        .where(Appointment.appt_id == appt_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    ).scalar()
     if appt is None:
         raise service.SlotNotFound(str(appt_id))
     if appt.status != "booked":
