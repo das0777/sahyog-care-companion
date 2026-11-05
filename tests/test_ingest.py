@@ -482,3 +482,11 @@ def test_a_giant_page_is_refused_at_upload():
     c.save()
     with pytest.raises(Rejected, match="larger than A2"):
         check_pdf(buf.getvalue())
+
+
+def test_a_report_naming_its_own_patient_isnt_set_aside():
+    """Found in local testing: "Patient: P0011" on P0011's own report set the whole report aside."""
+    text = "ABDOMINAL ULTRASOUND REPORT\nPatient: P0011\nLiver: Normal size and appearance."
+    assert scan.flags_injection(text, "P0011") is None
+    assert scan.flags_injection(text, "P0012") == "p0011"  # another patient's ID still is
+    assert scan.flags_injection("Referred by the clinic for P0042.", "P0011") == "p0042"
