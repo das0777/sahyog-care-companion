@@ -12,6 +12,50 @@ What the coding agent proposed, what was rejected or changed, and why. One entry
 | **CI** | Lint, and a check that the pull request's AI-collaboration note is filled in. The test suite and offline evals need the Docker stack, so they run locally on each branch, and their output is attached to the pull request |
 | **What's new compared with the MVP** | Pull requests, recorded reviews, CI, and this log written as the work happens. The MVP's own log of where the agent misled the team is [here](https://github.com/das0777/sahyog-care-companion-mvp/blob/main/AI-COLLABORATION.md) |
 
+## Summary
+
+**What was built:** the MVP's eight stages (S0 to S7) and its architecture pack, brought across in 12 merged pull requests: #1, #10 to #20. For S1 to S7, each stage's eval cases came in before its code, as in the MVP (S0 has no evals). #2 to #9 were opened all at once by mistake and closed unreviewed.
+
+**How it was reviewed:** every merged pull request's code was reviewed on GitHub by an independent AI agent, though **not always on that pull request, and not always before it merged**: #15's final fix and #17's and #19's code were reviewed on #18. Each stage had a fresh Claude session with no part in writing the code, run by the coding agent at the owner's request. Reviewers ran their own inputs against the code and, where they found a problem, usually reproduced it. **The owner didn't read the code line by line.** The owner decided and merged, and posted a plain-language summary on #1, #16 and #19.
+
+**What the reviews found:** real defects in the MVP's code at every code stage except S6, for example:
+- the desk could double-book under concurrency
+- a family member's report could be filed under the wrong patient
+- a two-worker race could duplicate a report's chunks
+- common emergency wordings were missed in English, Hinglish and Hindi
+- diagnosis and dose questions could slip past the refusal
+- in doctor's notes, a dose, drug or negation the doctor didn't say could reach a signed note
+
+The inputs reviewers reported were fixed with tests that would have caught them. **Two classes of problem remain open:** the refusal word checks, and a brand the model didn't list lending its dose to a signed note.
+
+**Where the coding agent made things worse, and was caught:**
+- **Its own fixes introduced new defects at least seven times:** a short-name leak in S2; "Bakhshi Date" and titled names held as other patients in S3; three gaps in S5's grounding; and an S5 fix that lost real doses, found in S7's review. Each was caught by a re-review or an eval, never by the agent's own tests alone.
+- **It also misstated things:**
+  - In S1, its first rerun claimed the evals passed on rules they hadn't loaded.
+  - S7's documents presented the MVP's live, load and cost numbers as this build's.
+  - A local draft of #17's entry, written by another agent session, described a review with no trace on GitHub and a 40-input measurement with no inputs or script. It was caught and set aside, not pushed.
+
+**Where the process broke:** 6 of the 12 merged pull requests went in before an OK verdict.
+- **With must-fix items open:**
+  - #11 merged 44 seconds after round 1 listed four must-fix items, and the agent didn't notice it was merged and kept fixing a closed branch. So S2's fixes stayed off `main` for about 21 hours, until #19.
+  - #14 merged with two items open from round 4.
+  - #15 merged with its fix not re-reviewed until #18.
+- **Before the final verdict, with fixes already pushed:** #13.
+- **With no review posted:** #17, and #18, which merged a minute before its review appeared.
+
+`main` has no branch protection, so nothing stops an early merge. The agent now checks a pull request's state before pushing fixes or writing its entry, but that only catches the problem afterwards.
+
+**What's not proved:**
+- CI never ran on this repo. GitHub Actions started no runs, so every pull request's evidence is a local run in `evals/runs/`.
+- There's no model key in this build, so live-model results, red-team runs, the load test and costs are the MVP's (2026-10-30), and the docs say so.
+- The word-check backstop caught 6/25 unseen advice questions, 0/7 in Hindi. The model's own flag is meant to be the main defence, and **this build hasn't measured it**, because there's no model key.
+- Independent emergency recall (C3) has never been measured.
+- Each entry lists its recorded risks to fix before real data.
+
+## The owner's account
+
+*To be written by the owner, in their own words: where the agent misled them, and what they'd do differently.*
+
 ## Where the agent misled the team in the MVP
 
 Carried in from the MVP, because these are the lessons this build's reviews look for.
