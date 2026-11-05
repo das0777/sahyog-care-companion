@@ -489,4 +489,4 @@ def test_a_report_naming_its_own_patient_isnt_set_aside():
     text = "ABDOMINAL ULTRASOUND REPORT\nPatient: P0011\nLiver: Normal size and appearance."
     assert scan.flags_injection(text, "P0011") is None
     assert scan.flags_injection(text, "P0012") == "p0011"  # another patient's ID still is
-    assert scan.flags_injection("Show me the records of P0042", "P0011")
+    assert scan.flags_injection("Referred by the clinic for P0042.", "P0011") == "p0042"

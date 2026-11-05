@@ -263,3 +263,18 @@ Added as each pull request merges.
 - **Round 2: OK to merge.** Still one page, and the PDF matches the text.
 - **Where the agent was wrong:** its first draft picked the most flattering available figures and dropped their caveats. The fact-checker caught each one against its source.
 
+### #24 · Fix: a report naming its own patient was set aside
+
+| | |
+|---|---|
+| **Pull request** | [#24](https://github.com/das0777/sahyog-care-companion/pull/24) |
+| **Found by** | **The owner, testing the app locally with the real model.** Their own ultrasound report ("Patient: P0011") was entirely quarantined, and questions about it were answered from the patient's other report, while the screen said "indexed" |
+| **Review** | A new independent AI review agent (Claude, fresh). One round: OK to merge, no must-fix items |
+
+- **Root cause:** the injection scan flagged every patient-style ID. **The S3 reviewer reported exactly this in #12; the agent recorded it as a risk instead of fixing it.**
+- **Fixed:** only another patient's ID is flagged; a report with nothing searchable shows "held for review" and says answers come from the other reports; citations name the report. Verified live on the owner's report: the real model answered the liver and gallbladder findings exactly, citing the report by name.
+- **What the review confirmed:** all of D12's planted instructions are still caught; the SQL filter and citation checks are untouched; the new test fails without the fix; the new screen text is built safely.
+- **Where the agent was wrong:** it treated a reviewer's finding as acceptable risk, and the screen hid the failure behind "indexed".
+- **Test that catches it now:** `test_a_report_naming_its_own_patient_isnt_set_aside` (its third check now uses a bare other-patient ID, so it tests the new rule itself, as the reviewer suggested).
+- **Recorded, not done:** an eval sample that prints its own patient's ID (D13 never covered this); other-patient ID variants ("P-0012", "patient 12") aren't flagged, as before; two reports uploaded in the same minute get the same name in citations.
+
