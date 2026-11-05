@@ -16,7 +16,7 @@ What the coding agent proposed, what was rejected or changed, and why. One entry
 
 **What was built:** the MVP's eight stages (S0 to S7) and its architecture pack, brought across in 12 merged pull requests: #1, #10 to #20. For S1 to S7, each stage's eval cases came in before its code, as in the MVP (S0 has no evals). #2 to #9 were opened all at once by mistake and closed unreviewed.
 
-**How it was reviewed:** every merged pull request's code was reviewed on GitHub by an independent AI agent, though **not always on that pull request, and not always before it merged**: #17's and #19's code was reviewed on #18. Each stage had a fresh Claude session with no part in writing the code, run by the coding agent at the owner's request. Reviewers ran their own inputs against the code and, where they found a problem, usually reproduced it. **The owner didn't read the code line by line.** The owner decided and merged, and posted a plain-language summary on #1, #16 and #19.
+**How it was reviewed:** every merged pull request's code was reviewed on GitHub by an independent AI agent, though **not always on that pull request, and not always before it merged**: #15's final fix and #17's and #19's code were reviewed on #18. Each stage had a fresh Claude session with no part in writing the code, run by the coding agent at the owner's request. Reviewers ran their own inputs against the code and, where they found a problem, usually reproduced it. **The owner didn't read the code line by line.** The owner decided and merged, and posted a plain-language summary on #1, #16 and #19.
 
 **What the reviews found:** real defects in the MVP's code at every code stage except S6, for example:
 - the desk could double-book under concurrency
@@ -39,7 +39,7 @@ The inputs reviewers reported were fixed with tests that would have caught them.
 - **With must-fix items open:**
   - #11 merged 44 seconds after round 1 listed four must-fix items, and the agent didn't notice it was merged and kept fixing a closed branch. So S2's fixes stayed off `main` for about 21 hours, until #19.
   - #14 merged with two items open from round 4.
-  - #15 merged with its fix never re-reviewed.
+  - #15 merged with its fix not re-reviewed until #18.
 - **Before the final verdict, with fixes already pushed:** #13.
 - **With no review posted:** #17, and #18, which merged a minute before its review appeared.
 
