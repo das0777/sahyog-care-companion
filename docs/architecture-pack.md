@@ -1,11 +1,11 @@
 # Sahyog Care Companion · Architecture pack
 
-> **Written for the MVP.** This pack describes the MVP's code at `s7-accepted`. This final build has the same architecture, plus the fixes its reviews made (listed in `AI-COLLABORATION.md`): for example, a stricter grounding of medicines and doses in W3, a stricter wrong-patient check in W2 ingest, fenced ingest workers, a desk-move lock, and wider red-flag and wording rules. Where a detail below differs, the code and the log are right. The PDF is the same text.
+> **Written for the MVP.** This pack describes the MVP's code at `s7-accepted`. This final build has the same architecture, plus the fixes its reviews made (listed in `AI-COLLABORATION.md`): for example, a stricter grounding of medicines and doses in W3, a stricter wrong-patient check in W2 ingest, fenced ingest workers, a desk-move lock, and wider red-flag and wording rules. Where a detail below differs, the code and the log are right. **Numbers in sections 6 and 7 (recall, scan-read error rate, triage speed) are the MVP's and weren't re-run in this build.** The PDF is the same text.
 
 | | |
 |---|---|
 | **Version** | 1.0, 2026-11-02 |
-| **Describes** | The code on `main` at tag `s7-accepted` and later |
+| **Describes** | The MVP's code at its tag `s7-accepted`. This repo's `main` adds the review fixes (see the note above). The tag exists only in the MVP repo |
 | **Required by** | Engagement pack p48: context, container, entity model, three graphs and two sequences, all corrected from the pack |
 | **Timing** | Written after the build. The engagement pack asks for version one on day 5, before graph code, so this doesn't meet that ordering |
 
@@ -68,7 +68,7 @@ flowchart LR
 
 | Person | Fear | What the system shows them |
 |---|---|---|
-| Chief medical officer | AI advice harms a patient | Red-flag gate before any match, and refusal of diagnosis and dose questions |
+| Chief medical officer | AI advice harms a patient | Red-flag gate before any match, and refusal of diagnosis and dose questions (by the model's flag, with word checks as a backstop: they caught 6/25 unseen advice questions in this build, 0/7 in Hindi) |
 | Patient | A stranger reads their reports | Patient filter in SQL, and citations on every answer |
 | Doctor | Blamed for an AI note | Nothing is stored until they sign, and a named medicine is never invented |
 | Front desk | Being replaced | Hand-offs come to their queue, and they can override any assistant booking |
@@ -302,8 +302,8 @@ flowchart TD
     classDef tool fill:#d1c4e9,stroke:#4527a0,color:#111
     classDef human fill:#ffe082,stroke:#ff8f00,color:#111
     classDef handoff fill:#ef9a9a,stroke:#b71c1c,color:#111
-    class intake,rules,match code
-    class second,ask model
+    class intake,rules code
+    class second,ask,match model
     class shortlist,book tool
     class wait,pick human
     class er,desk handoff
@@ -339,7 +339,8 @@ flowchart LR
     classDef human fill:#ffe082,stroke:#ff8f00,color:#111
     class parse,identity,chunk,scan code
     class load,embed,index tool
-    class hold human
+    class hold handoff
+    classDef handoff fill:#ef9a9a,stroke:#b71c1c,color:#111
 ```
 
 No model outside the boundary is called here. OCR and embeddings are both local.
@@ -382,11 +383,12 @@ flowchart TD
     classDef model fill:#f8bbd0,stroke:#ad1457,color:#111
     classDef handoff fill:#ef9a9a,stroke:#b71c1c,color:#111
     class scope,rules,safety,notfound code
-    class screen,widen,answer model
+    class widen code
+    class screen,answer model
     class emergency,refuse,todesk handoff
 ```
 
-**Why a patient can't see another patient's data:** the filter is in the SQL ([`records/search.py`](../sahyog/records/search.py)), and its `patient_id` comes from the auth context, never from the model. A poisoned PDF can change what the model says, but it can't widen a `WHERE` clause. The red-team set tests this end to end.
+**Why a patient can't see another patient's data:** the filter is in the SQL ([`records/search.py`](../sahyog/records/search.py)), and its `patient_id` is checked against the login (`can_read` in the scope guard) before any search, never taken from the model. A poisoned PDF can change what the model says, but it can't widen a `WHERE` clause. The red-team set tests this end to end.
 
 ### W3 · Consultation scribe ([`w3.py`](../sahyog/graphs/w3.py))
 
@@ -396,10 +398,10 @@ The worker runs it up to the doctor's review. The API resumes it from the checkp
 flowchart TD
     start([Transcript]) --> segment
     segment["segment<br/>speaker turns"] --> draft
-    draft["draft_soap<br/>schema enforced"]
+    draft["draft_soap<br/>schema enforced, each line quotes<br/>the transcript exactly (A and P: the doctor)"]
     draft -->|failed| fail
     draft --> extract
-    extract["extract_meds<br/>grounded against the transcript,<br/>a class with no drug becomes a gap"]
+    extract["extract_meds<br/>grounded in the doctor's words:<br/>a class, unsaid dose or nearby negation becomes a gap"]
     extract -->|failed| fail
     extract --> stock
     stock["stock_check<br/>flags only"] --> review
@@ -508,10 +510,10 @@ Each row is a place where this build departs from the pack's design.
 | **Hospital system** | FHIR R4 reader | Not built | Optional in the pack. Demographics come from seeded tables |
 | **Stock** | One interface with CSV and API adapters | The interface and the CSV adapter | The API adapter waits on the client's API |
 | **Slots** | Free-or-taken slots, with capacity as the fallback | Blocks with capacity and tokens | Nobody can predict consultation length, so exact minutes aren't promised |
-| **W1** | Rules, match, shortlist, options, pick, book | Adds a model second pass, and hand-offs from every step | Rules alone caught about half of unseen phrasing. The second pass is what closed that gap on the test cases |
+| **W1** | Rules, match, shortlist, options, pick, book | Adds a model second pass, and hand-offs from every step | Rules alone caught about half of unseen phrasing. The second pass narrowed that gap on the MVP's probes, one of which wasn't blind. The independent check hasn't run |
 | **W2 ingest** | Tags PHI with Presidio while ingesting | Adds an identity check and injection scan, and scrubs at the gateway instead | Chunks stay as printed, inside the boundary, and scrubbing happens only when text leaves |
 | **W2 ingest** | Parallel ingest with the Send API | A bounded worker pool on the queue, no Send API | **Misses an Architect-tier item** |
-| **W2 ask** | Scope, retrieve, grade, answer, safety | Adds a red-flag check, number check and scan warning | A patient may mention an emergency while asking about a report, and about 1 in 200 scan-read numbers is wrong |
+| **W2 ask** | Scope, retrieve, grade, answer, safety | Adds a red-flag check, number check and scan warning | A patient may mention an emergency while asking about a report, and about 1 in 200 scan-read numbers is wrong (MVP measurement) |
 | **W3** | STT is a separate service, and a timeout parks the draft | STT runs in the worker, and the draft simply waits with no timeout | Simpler, with no audio leaving the boundary. A forgotten draft stays open |
 | **Booking sequence** | Sends SMS through a gateway | Writes an outbox row in the booking transaction | No real gateway exists, so no SMS is actually delivered |
 | **Memory** | Long-term store keyed by patient | Not built | Language comes from each request, and nothing is remembered between threads |
@@ -524,7 +526,7 @@ Each row is a place where this build departs from the pack's design.
 
 ## 7. What this architecture hasn't proved
 
-- **Scale:** it has run on one Mac with one API process. Triage narrowly missed its 4 second p95 at the target rate, at 4.28 s.
+- **Scale:** it has run on one Mac with one API process. Triage narrowly missed its 4 second p95 at the target rate, at 4.28 s (MVP load test, not re-run).
 - **Emergencies:** the independent test of emergency phrasing has never run. This is the top risk in [the final report](FINAL-REPORT.md).
 - **Clinical safety:** no clinician has reviewed the rules, prompts or messages.
 - **Real documents:** scans and audio have all been synthetic.
