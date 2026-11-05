@@ -263,3 +263,18 @@ Added as each pull request merges.
 - **Round 2: OK to merge.** Still one page, and the PDF matches the text.
 - **Where the agent was wrong:** its first draft picked the most flattering available figures and dropped their caveats. The fact-checker caught each one against its source.
 
+### #23 · Discovery deliverables D1 to D7
+
+| | |
+|---|---|
+| **Pull request** | [#23](https://github.com/das0777/sahyog-care-companion/pull/23): D1 to D7 at the pack's paths, written **after** the build |
+| **Review** | A new independent AI fact-checker (Claude, fresh), run by the coding agent. Three rounds, on the pull request. It checked every cited test and file, and re-measured D5's figures on the eval database |
+
+- **Agent proposed:** the seven deliverables, from the pack, the code, the tests and measurements on a freshly seeded database.
+- **What held:** all 17 cited tests exist and test what's claimed; D5's counts and check results matched the reviewer's own measurement; the gaps (D2 not posted, D4 not signed off, 2 of 3 D5 checks failing, D6 without Gate 2 answers) were stated, not hidden.
+- **Round 1: changes needed, three must-fix items, all overclaims.** D7 said one booking per patient when the index allows one per *block*; D3 called an assumption "failed" when nobody had asked; D4 claimed check thresholds were enforced by tests that don't test them. **Fixed**, with seven minor corrections.
+- **Round 2: changes needed, two new overclaims from the agent's own corrections.** Stale stock was described as "unknown" (it keeps its status, marked stale), and the agent **invented a reason** for an eval being circular that no source gives. **Fixed.**
+- **Round 3: OK to merge.**
+- **Where the agent was wrong:** five overclaims in documents meant to record facts, two of them introduced while fixing the first three. One was a made-up explanation.
+- **Needs a person, not done:** posting D2's questions and recording the answers; the compliance officer's sign-off on D4; fixing the seed so D5's checks pass.
+
