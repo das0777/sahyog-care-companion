@@ -24,3 +24,14 @@ One contract per table: owner, sensitivity class, schema version and the checks 
 | [ingest_job](ingest_job.md) | Records service | Operational, tied to a patient |
 | [quarantined_chunk](quarantined_chunk.md) | Records service | Identified |
 | [embedding_cache](embedding_cache.md) | Records service | Operational |
+
+## D4 sign-off
+
+The pack accepts D4 with the contracts filed here and **the sensitivity class column signed off by the compliance officer, in role.** That sign-off hasn't been given.
+
+| | |
+|---|---|
+| Contracts | 20 (the pack asks for 14), each with owner, schema version, sensitivity class, freshness, consumers and what breaks, change rule, and checks with thresholds |
+| Class column signed off by | **Pending: compliance officer, in role** |
+| Date | |
+

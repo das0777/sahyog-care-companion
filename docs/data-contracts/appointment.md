@@ -12,3 +12,20 @@
 - token_no between 1 and the block's capacity
 - status in booked, checked_in, in_consult, done, cancelled, no_show
 - consult_ended_at after consult_started_at when both set
+
+## Freshness
+
+Live.
+
+## Consumers, and what breaks for each
+
+W1, desk, W3 encounters, audit. If the schema changes: status values change breaks the active-booking index and triggers.
+
+## Changing the schema
+
+A new Alembic migration, never an edit to an applied one. A breaking change (rename, drop, new meaning) needs an ADR and a version bump here first.
+
+## Check thresholds
+
+Every check above has a threshold of **0 violations**. Only checks backed by a database constraint, unique index or trigger are enforced. The rest hold on the seeded data by construction (a few are tested in `tests/test_seed.py`). Nothing measures them on live data yet.
+
