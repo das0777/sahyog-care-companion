@@ -251,3 +251,15 @@ Added as each pull request merges.
 - **Where the agent was wrong:** the pack was carried over with a general "written for the MVP" note, but the note didn't cover specific false statements, as #18's review had already found for the other docs.
 - **Recorded, not changed:** the W2 ask diagram has no path for rules that didn't load (the API catches `RulesNotLoaded` and sends it to the desk); lines on ingest fencing and the desk lock could say more.
 
+### #22 · Executive memo
+
+| | |
+|---|---|
+| **Pull request** | [#22](https://github.com/das0777/sahyog-care-companion/pull/22): `memo/executive-memo.md` and its one-page PDF |
+| **Review** | A new independent AI fact-checker (Claude, fresh), run by the coding agent. Two rounds, on the pull request. It checked every figure against the engagement pack, the final report, this log and the code |
+
+- **Agent proposed:** a one-page memo opening with the business result, written for the board.
+- **Round 1: changes needed, five must-fix items, all overclaims.** "Ready for a supervised pilot, not yet for patients" contradicted itself; "0 invented medicines in 37" came from a scripted model, and later reviews found the MVP did let unsaid doses through; "triage in about 4 seconds" hid a narrow miss (3.3–4.3 s against 4 s); "all were fixed with tests" ignored an open dose leak; "names are removed" was true only for the patient's own; and it read as a board memo, not the case study the pack asks for. **All corrected** with the reviewer's wording, plus two optional fixes.
+- **Round 2: OK to merge.** Still one page, and the PDF matches the text.
+- **Where the agent was wrong:** its first draft picked the most flattering available figures and dropped their caveats. The fact-checker caught each one against its source.
+
