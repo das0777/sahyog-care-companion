@@ -193,3 +193,17 @@ Added as each pull request merges.
 - **Recorded risks:** no test drives an open circuit through a graph to the desk; the gateway logs 200 characters of a provider's error (an in-region model could echo unscrubbed text); a bad MCP token fails before any audit row, and the "allowed" row is written before a booking that may fail; the worker heartbeat runs on its own thread, so `/health` can say "ok" after the job loops die; a brand after a dose that the model didn't list can still lend its dose, capitalised or not ("Continue amlodipine, 40 mg Telma at night"); "interrupt" isn't in the negation list.
 - **#18 was itself merged at 05:09 UTC, before its review was posted**, so only its first commit (the log entries) reached `main`. The reviewed fixes landed through [#19](https://github.com/das0777/sahyog-care-companion/pull/19), unchanged from #18's reviewed head. From here on, the agent confirms the merged head matches the reviewed head before writing any log entry.
 - **Round 2 on #18: OK to merge.** The reviewer re-ran its probes: S2's fixes are back, the golden set keeps 21/22, the leaks close when the model lists both medicines, and the docs carry the MVP labels.
+
+### #20 · Architecture pack and review guide
+
+| | |
+|---|---|
+| **Pull request** | [#20](https://github.com/das0777/sahyog-care-companion/pull/20), the pack ported from the MVP at `dbeb7bb`, with a note that it describes the MVP |
+| **Review** | A new independent AI review agent (Claude, fresh), run by the coding agent. Two rounds, on the pull request. It checked every diagram against the graph code. The owner didn't read it line by line |
+
+- **What held:** the node names and edges of all four graphs match the code exactly; spot checks match (23 tables, 4 MCP tools, the breaker at 5 failures for 30 s, the 600 s audio sweep, streaming only after the safety check).
+- **Round 1: changes needed, four must-fix items, each a statement a client architect could catch.** It named a tag that exists only in the MVP; MVP numbers read as this build's, including "the second pass closed that gap" when probe 3 wasn't blind and the independent check never ran; the W3 diagram labels described the MVP's looser grounding; and the CMO row claimed diagnosis and dose refusal without saying the word checks are a weak backstop. **Fixed**, with the reviewer's wording, plus three diagram colours and the patient-ID sentence. The PDF was regenerated.
+- **Round 2: OK to merge.** The reviewer checked the corrected text in both the markdown and the PDF.
+- **Where the agent was wrong:** the pack was carried over with a general "written for the MVP" note, but the note didn't cover specific false statements, as #18's review had already found for the other docs.
+- **Recorded, not changed:** the W2 ask diagram has no path for rules that didn't load (the API catches `RulesNotLoaded` and sends it to the desk); lines on ingest fencing and the desk lock could say more.
+
