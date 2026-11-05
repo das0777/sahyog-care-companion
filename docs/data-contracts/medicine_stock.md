@@ -10,7 +10,7 @@
 ## Checks
 
 - qty >= 0
-- as_of is no older than 7 days (`STALE_AFTER_DAYS` in `sahyog/scribe/stock.py`); older stock is shown as unknown
+- as_of is no older than 7 days (`STALE_AFTER_DAYS` in `sahyog/scribe/stock.py`); older stock keeps its status and is shown with its age and "(stale)"
 
 ## Freshness
 
