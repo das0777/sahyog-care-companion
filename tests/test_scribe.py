@@ -645,7 +645,12 @@ def test_a_decimal_dose_isnt_split_at_its_point():
     ],
 )
 def test_a_dose_cant_come_from_the_next_drug_when_the_medicine_has_none(doctor, name, dose):
-    out = _one(name, dose, doctor)
+    # As the model lists them: both medicines (a dose after a word isn't a name on its own)
+    raw = [
+        {"name": name, "dose": dose, "span": doctor},
+        {"name": "Telma", "dose": "40 mg", "span": "telma"},
+    ]
+    out = grounding.ground_medicines(raw, doctor)
     assert out.medicines[0]["dose"] == "" and out.medicines[0]["dose_gap"]
 
 
@@ -702,3 +707,69 @@ def test_a_line_cant_reverse_an_omit_pause_or_withdraw(text, quote):
 def test_route_and_frequency_words_dont_end_a_medicines_dose(doctor, dose):
     out = _one("Amlodipine", dose, doctor)
     assert out.medicines and out.medicines[0]["dose"] == dose
+
+
+# ---- from the S7 review ------------------------------------------------------------------------
+
+
+def test_the_golden_set_keeps_every_dose_the_doctor_said():
+    """Each golden dictation's expected medicines, run through grounding together as the model
+    would list them: a dose the doctor said must survive (S7 review: 21/22 fell to 19/22)."""
+    rows = [json.loads(line) for line in Path("evals/w3/golden.jsonl").read_text().splitlines()]
+    lost = []
+    for r in rows:
+        doctor = grounding.doctors_words(grounding.segment(r["transcript"]))
+        meds = [m for m in r["expect"]["medicines"] if m.get("dose")]
+        raw = [{"name": m["name"], "dose": m["dose"], "span": m["name"]} for m in meds]
+        out = grounding.ground_medicines(raw, doctor)
+        kept = {m["name"]: m["dose"] for m in out.medicines}
+        lost += [(r["id"], m["name"]) for m in meds if not kept.get(m["name"])]
+    assert len(lost) <= 1, lost  # one golden dose was already a gap before this change
+
+
+@pytest.mark.parametrize(
+    "doctor",
+    [
+        "Amlodipine, 40 mg of telma at night.",
+        "Keep amlodipine going, 40 mg of telmisartan.",
+        "Amlodipine, Telma-40 at night.",
+    ],
+)
+def test_a_dose_before_another_medicines_name_is_that_ones(doctor):
+    other = "Telmisartan" if "telmisartan" in doctor else "Telma"
+    raw = [
+        {"name": "Amlodipine", "dose": "40 mg", "span": "amlodipine"},
+        {"name": other, "dose": "40 mg", "span": other.lower()},
+    ]
+    out = grounding.ground_medicines(raw, doctor)
+    amlo = [m for m in out.medicines if m["name"] == "Amlodipine"]
+    assert amlo and amlo[0]["dose_gap"]
+
+
+@pytest.mark.parametrize(
+    "doctor",
+    [
+        "Pantoprazole 40 mg subah khali pet.",
+        "Amoxicillin 500 mg three times a day.",
+        "Glycomet 500 mg one tablet after dinner.",
+        "Thyronorm 75 mcg empty stomach.",
+    ],
+)
+def test_a_word_after_a_dose_isnt_another_medicine(doctor):
+    name, dose = doctor.split()[0], " ".join(doctor.split()[1:3])
+    out = _one(name, dose, doctor, span=name.lower())
+    assert out.medicines and out.medicines[0]["dose"] == dose
+
+
+@pytest.mark.parametrize(
+    "doctor",
+    [
+        "Suspend warfarin 5 mg for three days.",
+        "Refrain from warfarin 5 mg.",
+        "Cut out warfarin 5 mg.",
+        "Defer warfarin 5 mg.",
+    ],
+)
+def test_suspend_refrain_cut_out_and_defer_make_the_doctor_confirm(doctor):
+    out = _one("Warfarin", "5 mg", doctor)
+    assert not out.medicines and out.gaps[0]["term"] == "Warfarin"

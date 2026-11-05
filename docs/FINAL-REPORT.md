@@ -1,11 +1,13 @@
 # Sahyog Care Companion · Final report and combined test pack
 
+> **From the MVP.** This document was ported unchanged from the [MVP](https://github.com/das0777/sahyog-care-companion-mvp). Its status, tags, test counts, live-model results, load test and costs describe the MVP on 2026-10-30. They were **not re-run in this build**, which has no model key. This build's evidence is `evals/runs/` (offline gates per stage) and `AI-COLLABORATION.md` (reviews per pull request), and it differs from the MVP by every fix those reviews made.
+
 | | |
 |---|---|
 | **Status** | All eight stages built and accepted by the user on 2026-10-30, on `main`. **Accepted as matching the brief, not as ready for patients** |
-| **Branch** | `main`, tags `s0-accepted` to `s7-accepted` |
+| **Branch** | The MVP's `main`, tags `s0-accepted` to `s7-accepted` (those tags exist only in the MVP repo) |
 | **Date** | 2026-10-30 |
-| **Evidence** | 334 tests and lint green; all offline gates pass on a clean rebuild; 17 checks fail with guardrails off, as they should |
+| **Evidence** | In the MVP: 334 tests and lint green; all offline gates pass on a clean rebuild; 17 checks fail with guardrails off, as they should |
 
 ## The verdict
 
